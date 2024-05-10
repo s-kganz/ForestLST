@@ -1,3 +1,4 @@
 data_in/
 data_working/
 .ipynb_checkpoints
+__pycache__/
