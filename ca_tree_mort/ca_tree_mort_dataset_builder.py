@@ -116,7 +116,6 @@ class CaTreeMort(tfds.core.GeneratorBasedBuilder):
       .filter(self._empty_record)
 
     # Yield features with windowing
-    # TODO actually hash the examples
     for example in ds:
       for windowed_example in self._apply_windowing(example):
         # Key is (pixel lat, pixel lon, first year of example)
