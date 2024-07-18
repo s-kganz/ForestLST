@@ -3,3 +3,6 @@ data_working/
 .ipynb_checkpoints
 __pycache__/
 tmp/
+.Rhistory
+.Rdata
+logs/
