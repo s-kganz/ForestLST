@@ -136,15 +136,16 @@ def _delete_folder_contents(dir: str) -> None:
             print("Failed to delete", file_path)
 
 def make_model_log_directory(model_name: str, log_dir: str="logs", 
-                             model_dir: str=os.path.join("data_working", "models")) -> None:
+                             model_dir: str=os.path.join("data_working", "models")) -> tuple[str]:
     log_output = os.path.join(log_dir, model_name)
-    model_output = os.path.join(model_dir, model_name)
+    model_output = os.path.join(model_dir, model_name) + ".keras"
 
     os.makedirs(log_output, exist_ok=True)
-    os.makedirs(model_output, exist_ok=True)
+    os.makedirs(model_dir, exist_ok=True)
 
     _delete_folder_contents(log_output)
-    _delete_folder_contents(model_output)
+
+    return log_output, model_output
 
 def make_train_valid_split(input_arr: np.ndarray, target_arr: np.ndarray, 
                            prop_valid=0.20, **kwargs) -> tuple[tf.data.Dataset]:
