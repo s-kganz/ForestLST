@@ -92,21 +92,24 @@ def build_dense(input_shape: tuple[int],
 
     return keras.models.Model(inputs=inp, outputs=out)
 
-def bias_init_classification(y):
+def bias_init_classification(y, as_log=True):
     '''
     Calculate the initial bias for a binary classification problem with possibly
     imbalance data. It is expected that y only takes on values 0, 1.
     '''
-    return np.log(
-        np.sum(y == 1) / np.sum(y == 0)
-    )
+    imbalance_ratio = np.sum(y == 1) / np.sum(y == 0)
+    if as_log:
+        return np.log(imbalance_ratio)
+    else:
+        return imbalance_ratio
 
-def bias_init_regression(y):
+
+def bias_init_regression(y, as_log=True):
     '''
     Calculate the initial bias for a regression problem. This is simply
     the mean of the target vector.
     '''
-    return np.mean(y)
+    return np.log(np.mean(y)) if as_log else np.mean(y)
 
 def regression_metrics():
     return [
