@@ -3,10 +3,7 @@ from functools import wraps
 from typing import Callable
 import warnings
 import datetime
-
-from googleapiclient.errors import HttpError
-from ee.ee_exception import EEException
-
+    
 import ee
 ee.Initialize()
 

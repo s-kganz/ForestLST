@@ -4,8 +4,6 @@ series lengths. Models and logs are saved as well.
 '''
 import datetime
 import os
-# Silence tensorflow debugging information
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 
 import sys
 sys.path.append(os.getcwd())
@@ -31,7 +29,7 @@ OPTIMIZER = "Nadam"
 
 # Download background data
 c = Client(project="forest-lst")
-alldata = util.data.read_gcs_csv(c, "preisler_tfdata", "preisler-rectangular-v2")
+alldata = util.gcs.read_gcs_csv(c, "preisler_tfdata", "preisler-rectangular-v2")
 
 # Copy longitude and latitude columns so they don't get lost during windowing
 alldata["lat"] = alldata["latitude"]

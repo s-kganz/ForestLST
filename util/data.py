@@ -1,21 +1,6 @@
-from google.cloud.storage import Client
 import pandas as pd
 import tensorflow as tf
 import xarray as xr
-
-def read_gcs_csv(client: Client, bucket: str, prefix: str) -> pd.DataFrame:
-    '''
-    Read CSVs hosted on GCS to a pandas dataframe.
-    '''
-    files = [
-        "/".join(["gs://{}".format(bucket), f.name])
-        for f in client.list_blobs(bucket, prefix=prefix)
-        if f.name.endswith("csv")
-    ]
-
-    ds = pd.concat((pd.read_csv(f) for f in files), ignore_index=True)
-
-    return ds
 
 def csv_to_timeseries_dataset(df: pd.DataFrame, target: str="mort", drop_cols: list[str]=["system:index", ".geo"],
                                 target_shift: int=-1, timeseries_length: int=5) -> xr.Dataset:
@@ -42,7 +27,7 @@ def csv_to_timeseries_dataset(df: pd.DataFrame, target: str="mort", drop_cols: l
         raise ValueError(f"Input dataframe is missing one of (latitude, longitude, year). Columns present: {df.columns}")
     
     # Verify that the target columns is present.
-    if not target in df.columns:
+    if target not in df.columns:
         raise ValueError(f"Target column {target} not in input dataframe. Columns present: {df.columns}")
 
     # Convert to an xarray
