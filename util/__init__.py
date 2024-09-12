@@ -1,11 +1,16 @@
-import os
-# Silence tensorflow debugging information
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
+import warnings
 
 from . import data
-from . import training
+from . import data_source
 
-import warnings
+try:
+    from . import training
+    # Silence tensorflow debugging information
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
+except ImportError:
+    warnings.warn("TensorFlow not found! Module util.training will not be loaded.")
+
+
 try:
     from . import gee
 except ImportError:

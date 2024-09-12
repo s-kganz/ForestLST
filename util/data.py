@@ -1,5 +1,4 @@
 import pandas as pd
-import tensorflow as tf
 import xarray as xr
 
 def csv_to_timeseries_dataset(df: pd.DataFrame, target: str="mort", drop_cols: list[str]=["system:index", ".geo"],
