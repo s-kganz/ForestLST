@@ -15,17 +15,17 @@ dask.config.set(scheduler='synchronous')
 
 template = xr.open_dataset("data_working/damage_rasters/2020.tif")
 output_dir = "data_working/daymet"
-start_year = 2000
+start_year = 2023
 end_year   = 2023
 
 def make_annual_ds(y):
     print(y)
     print("Prcp")
-    prcp = util.data_source.daymet_water_year_ppt(y, template)
+    prcp = util.daymet.water_year_ppt(y, template)
     print("Vp")
-    vp = util.data_source.daymet_summer_mean_vp(y, template)
+    vp = util.daymet.summer_mean_vp(y, template)
     print("Tmin")
-    tmin = util.data_source.daymet_minimum_winter_air_temperature(y, template)
+    tmin = util.daymet.minimum_winter_air_temperature(y, template)
     print("Annual dataset")
     return xr.Dataset({
         "prcp": prcp,
