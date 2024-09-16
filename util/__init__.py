@@ -1,7 +1,7 @@
 import warnings
 
 from . import data
-from . import data_source
+from . import daymet
 
 try:
     from . import training
