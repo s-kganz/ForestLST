@@ -9,3 +9,15 @@ dependencies:
   - geemap
   - google-cloud-storage
   - tensorflow-datasets
+  - xarray
+  - dask
+  - rasterio
+  - rioxarray
+  - xarray-spatial
+  - pandas
+  - numpy
+  - scikit-learn
+  - matplotlib
+  - earthaccess
+  - pyproj
+  - shap
