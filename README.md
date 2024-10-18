@@ -13,8 +13,8 @@ Mortality events have been documented worldwide, but are particularly severe in 
 ## Setup
 First, clone the repository
 ```
-git clone https://github.com/UW-MLGEO/MLGEO2024_kganz
-cd MLGEO2024_kganz
+git clone https://github.com/UW-MLGEO/MLGEO2024_ForestMort
+cd MLGEO2024_ForestMort
 ```
 Next, install the environment
 ```
