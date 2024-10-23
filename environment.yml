@@ -1,4 +1,4 @@
-name: gee
+name: forest_mort
 channels:
   - conda-forge
   - defaults
