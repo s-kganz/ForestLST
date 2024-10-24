@@ -21,6 +21,8 @@ Next, install and activate the environment
 conda env create --file=environment.yml
 conda activate forest_mort
 ```
+Most of the data cleaning scripts use GDAL on the command line. GDAL is included in `environment.yml`, but if you find that you can't run GDAL commands check [this page](https://gdal.org/en/latest/api/python_bindings.html) for guidance on modifying your environment.
+
 If you want to use any of the scripts that work with Earth Engine or `earthaccess`, you will have to set up accounts with the respective providers. Once you have done so, do the following:
  - `import ee; ee.Initialize()` to link your Python session with your Earth Engine account.
  - Create a file named `.netrc` in your home directory. Add your `earthaccess` credentials to the file in the following format
@@ -37,7 +39,7 @@ ca_mort was created with Earth Engine to reproduce the workflow in [Preisler et 
 
 The resulting dataset is at 4 km resolution and covers all ADS surveys in California from 1998 - 2018. The data are encoded as a CSV that is < 1 GB, but coordinate information is included so you can transform it into a spatial data structure. You can also download the data from a public cloud storage bucket. The URL and some visualization tricks are in `notebooks/get_drought_mortality.ipynb`.
 
-west_mort is still under development, but is far enough along that we give some documentation details. **None of what follows is guaranteed to work!** This dataset is much larger than ca_mort. It covers all of the western US at 1 km resolution. We used an entirely open-source workflow to generate the dataset. Given the scale of data involved, the cleaning steps are spread across several scripts and notebooks.
+west_mort is still under development, but is far enough along that we give some documentation details. **What follows is under active development and is not guaranteed to work!** This dataset is much larger than ca_mort. It covers all of the western US at 1 km resolution. We used an entirely open-source workflow to generate the dataset. Given the scale of data involved, the cleaning steps are spread across several scripts and notebooks.
  - `scripts/download_data.sh` downloads all the input data to your machine. This will take up about 10 GB of disk space.
  - `scripts/merge_ads_polygons.sh` combines ADS polygons from different USFS regions into one geodatabase.
  - `scripts/burn_ads_polygons.py` converts ADS polygons into rasters.
