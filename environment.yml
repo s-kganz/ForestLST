@@ -21,3 +21,4 @@ dependencies:
   - earthaccess
   - pyproj
   - shap
+  - gdal
