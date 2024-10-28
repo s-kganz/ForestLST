@@ -16,18 +16,29 @@ First, clone the repository
 git clone https://github.com/UW-MLGEO/MLGEO2024_ForestMort
 cd MLGEO2024_ForestMort
 ```
-Next, install and activate the environment
+We depend on a variety of packages and not all of which are available on conda. We use conda to create the environment and pip to install packages. First, create the conda environment and install conda-specific packages.
 ```
 conda env create --file=environment.yml
 conda activate forest_mort
 ```
+Install remaining packages with pip (this takes about 10 minutes on a fresh install).
+```
+pip install -r requirements.txt
+```
 Most of the data cleaning scripts use GDAL on the command line. GDAL is included in `environment.yml`, but if you find that you can't run GDAL commands check [this page](https://gdal.org/en/latest/api/python_bindings.html) for guidance on modifying your environment.
 
-If you want to use any of the scripts that work with Earth Engine or `earthaccess`, you will have to set up accounts with the respective providers. Once you have done so, do the following:
+If you want to use any of the scripts that work with Earth Engine or `earthaccess`, you will have to set up accounts with the respective providers. **This is not necessary unless you want to recreate the steps we took to build the mortality datasets.** Once you have done so, do the following:
  - `import ee; ee.Initialize()` to link your Python session with your Earth Engine account.
  - Create a file named `.netrc` in your home directory. Add your `earthaccess` credentials to the file in the following format
 ```machine urs.earthdata.nasa.gov login <your_username> password <your_password>```
 Now you should be able to authenticate with `earthacess.login(strategy="netrc")`.
+
+For access to development data on GCS, you will have to also set up the Google Cloud SDK. You can have the SDK point to the conda environment we just created, or let it install the bundled Python. Follow the directions [here](https://cloud.google.com/sdk/docs/install) for your machine and then run the following two commands.
+```
+gcloud init
+gcloud auth application-default login
+```
+Make sure you select the correct cloud project and Google account.
 
 ## Datasets
 So far we have developed two forest mortality datasets, which we call ca_mort and west_mort. Both use [Aerial Detection Surveys](https://www.fs.usda.gov/science-technology/data-tools-products/fhp-mapping-reporting/detection-surveys) from the US Forest Service as the response variable. 

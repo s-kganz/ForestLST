@@ -1,24 +1,7 @@
 name: forest_mort
 channels:
   - conda-forge
-  - defaults
 dependencies:
-  - earthengine-api
-  - tensorflow
-  - tensorboard
-  - geemap
-  - google-cloud-storage
-  - tensorflow-datasets
-  - xarray
-  - dask
-  - rasterio
-  - rioxarray
-  - xarray-spatial
-  - pandas
-  - numpy
-  - scikit-learn
-  - matplotlib
-  - earthaccess
-  - pyproj
-  - shap
+  - python=3.12
   - gdal
+  - jupyterlab
