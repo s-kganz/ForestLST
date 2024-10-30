@@ -21,10 +21,7 @@ We depend on a variety of packages and not all of which are available on conda. 
 conda env create --file=environment.yml
 conda activate forest_mort
 ```
-Install remaining packages with pip (this takes about 10 minutes on a fresh install).
-```
-pip install -r requirements.txt
-```
+
 Most of the data cleaning scripts use GDAL on the command line. GDAL is included in `environment.yml`, but if you find that you can't run GDAL commands check [this page](https://gdal.org/en/latest/api/python_bindings.html) for guidance on modifying your environment.
 
 If you want to use any of the scripts that work with Earth Engine or `earthaccess`, you will have to set up accounts with the respective providers. **This is not necessary unless you want to recreate the steps we took to build the mortality datasets.** Once you have done so, do the following:

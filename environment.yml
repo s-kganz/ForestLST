@@ -5,3 +5,24 @@ dependencies:
   - python=3.12
   - gdal
   - jupyterlab
+  - pip
+  - pip:
+    - pandas
+    - gcsfs
+    - numpy 
+    - scikit-learn 
+    - matplotlib 
+    - tensorflow
+    - keras
+    - tensorboard 
+    - earthengine-api 
+    - geemap 
+    - google-cloud-storage 
+    - xarray 
+    - dask[distributed]
+    - rasterio
+    - rioxarray 
+    - xarray-spatial 
+    - earthaccess 
+    - pyproj 
+    - shap
