@@ -1,11 +1,28 @@
-name: gee
+name: forest_mort
 channels:
   - conda-forge
-  - defaults
 dependencies:
-  - earthengine-api
-  - tensorflow
-  - tensorboard
-  - geemap
-  - google-cloud-storage
-  - tensorflow-datasets
+  - python=3.12
+  - gdal
+  - jupyterlab
+  - pip
+  - pip:
+    - pandas
+    - gcsfs
+    - numpy 
+    - scikit-learn 
+    - matplotlib 
+    - tensorflow
+    - keras
+    - tensorboard 
+    - earthengine-api 
+    - geemap 
+    - google-cloud-storage 
+    - xarray 
+    - dask[distributed]
+    - rasterio
+    - rioxarray 
+    - xarray-spatial 
+    - earthaccess 
+    - pyproj 
+    - shap
