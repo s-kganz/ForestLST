@@ -72,7 +72,7 @@ for y in years:
         damage_ds,
         allTouched=True,
         where=f"SURVEY_YEAR={y}",
-        burnValues=[100]
+        attribute="SEVERITY"
     )
 
     fine_burn = None
