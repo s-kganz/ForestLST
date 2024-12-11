@@ -6,6 +6,29 @@ import numpy as np
 import xbatcher
 import json
 import time
+from typing import List, Dict
+import pandas as pd
+from tensorboard.backend.event_processing import event_accumulator
+
+
+def parse_tensorboard(path: str, scalars: List[str]=None) -> Dict[str, pd.DataFrame]:
+    """
+    returns a dictionary of pandas dataframes for each requested scalar
+    """
+    ea = event_accumulator.EventAccumulator(
+        path,
+        size_guidance={event_accumulator.SCALARS: 0},
+    )
+    _absorb_print = ea.Reload()
+    # make sure the scalars are in the event accumulator tags
+    if scalars is not None:
+        assert all(
+            s in ea.Tags()["scalars"] for s in scalars
+        ), "some scalars were not found in the event accumulator"
+    else:
+        scalars = [s for s in ea.Tags()["scalars"]]
+    return {k: pd.DataFrame(ea.Scalars(k)) for k in scalars}
+    
 
 class DummyWriter():
     '''
@@ -150,7 +173,7 @@ class Trainer():
                 duration=t1-t0
             ))
             
-            print(f"Epoch {i+1}\t Training loss: {np.round(tloss, 2)}\t Validation loss: {np.round(vloss, 2)}")
+            print(f"Epoch {i+1}\t Training loss: {tloss:.4f}\t Validation loss: {vloss:.4f}")
             
             # Save model if it is better
             if self._model_log is not None and vloss < best_vloss:
@@ -247,8 +270,7 @@ class SinglePixelFC(torch.nn.Module):
         self.out = torch.nn.Linear(1)
 
     def forward(self, x):
-        x = self.bn(x)
-        x = self.drop(x)
+        pass
         
         
 
