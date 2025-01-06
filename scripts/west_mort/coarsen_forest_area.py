@@ -4,7 +4,7 @@ import numpy as np
 import os
 ogr.UseExceptions()
 
-input_tcc = "data_in/nlcd_tcc/nlcd_tcc_conus_2021_v2021-4.tif"
+input_tcc = "data_in/nlcd/nlcd_tcc_conus_2021_v2021-4.tif"
 output_dir = "data_working"
 template_raster = "data_working/damage_rasters/2000.tif"
 template_srs = "EPSG:3857"
@@ -39,7 +39,9 @@ gdal_calc.Calc(
     calc="np.where(a > 100, 0, a)",
     user_namespace={"np": np},
     a="temp_forest_cover.tif",
-    outfile=os.path.join(output_dir, "forest_cover.tif")
+    outfile=os.path.join(output_dir, "forest_cover.tif"),
+    creation_options=["BIGTIFF=YES", "COMPRESS=DEFLATE"],
+    overwrite=True
 )
 
 print("Thresholding")
@@ -49,7 +51,8 @@ gdal_calc.Calc(
     a=os.path.join(output_dir, "forest_cover.tif"),
     outfile=os.path.join(output_dir, "forest_mask.tif"),
     type="Byte",
-    overwrite=True
+    overwrite=True,
+    creation_options=["BIGTIFF=YES", "COMPRESS=DEFLATE", "NBITS=1"]
 )
 
 print("Deleting temporary data")
