@@ -71,7 +71,7 @@ rm "$OUTPUT_DIR/$(basename $NIDRM_BA_LINK)"
 echo "Downloading NLCD canopy cover..."
 NLCD_TCC_LINK="https://s3-us-west-2.amazonaws.com/mrlc/nlcd_tcc_CONUS_2021_v2021-4.zip"
 curl -sS $NLCD_TCC_LINK \
-    --output "$OUTPUT_DIR/$(basename $NIDRM_TOTALS_LINK)"
+    --output "$OUTPUT_DIR/$(basename $NLCD_TCC_LINK)"
 
 unzip -qq -o "$OUTPUT_DIR/$(basename $NLCD_TCC_LINK)" -d $OUTPUT_DIR/nlcd
 rm "$OUTPUT_DIR/$(basename $NLCD_TCC_LINK)"
