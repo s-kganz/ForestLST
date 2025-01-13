@@ -1,5 +1,6 @@
 import pandas as pd
 import xarray as xr
+import numpy as np
 from google.cloud.storage import Client
 from .gcs import read_gcs_csv
 
@@ -69,7 +70,7 @@ def make_preisler_dataset(ds: xr.Dataset, prec="prcp", prism_prec="ppt_sum", nea
         ds[rhost].shift({year_coordinate: 1}).rename("rhost1")
     ])
 
-def make_preisler_dataframe():
+def make_preisler_dataframe() -> pd.DataFrame:
     '''
     Utility function to load the Preisler dataset we use as a benchmark. See make_preisler_dataset
     for details on the data transformations involved.
@@ -78,3 +79,16 @@ def make_preisler_dataframe():
     df = read_gcs_csv(client, "preisler_tfdata", "preisler-rectangular")
     df_xr = df_to_xr(df, ["system:index", ".geo"], ["latitude", "longitude", "year"], sparse=False)
     return make_preisler_dataset(df_xr).to_dataframe().dropna()
+
+def make_windowed_data(arr: xr.DataArray, window: dict) -> xr.DataArray:
+    '''
+    Return indices in arr where a window of the provided size contains no
+    NAs.
+
+    Uses rolling(...).construct(...), which can be extremely memory intensive
+    depending on the size of the window.
+    '''
+    window_dims = {k: k+"_window" for k in window.keys()}
+    arr_roll = arr.rolling(**window).construct(**window_dims)
+    return np.where(arr_roll.notnull().all(dim=list(window_dims.values())))
+
