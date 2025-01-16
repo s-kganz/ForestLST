@@ -33,11 +33,11 @@ def parse_tensorboard(path: str, scalars: List[str]=None) -> Dict[str, pd.DataFr
 class BaseTrainer():
     '''
     Class implementing a Torch training loop.
-    '''
+    '''      
     def __init__(self, model: torch.nn.Module, optimizer: torch.optim.Optimizer, loss: Callable,
                  train_loader: DataLoader, valid_loader: DataLoader,
                  metrics: list[torchmetrics.Metric]=[],
-                 n_epochs: int=10, n_batches: int=None, verbose: bool=True):
+                 n_epochs: int=10, n_batches: int=None, verbose: bool=True, timing_log: str=None):
 
         self._verbose = verbose
         
@@ -55,19 +55,56 @@ class BaseTrainer():
         for m in self._metrics:
             self.history["Train"][str(m)] = list()
             self.history["Valid"][str(m)] = list()
-        
+
+        # Initialize dataloaders
         self._train_loader = train_loader
         self._train_iter = iter(self._train_loader)
         
         self._valid_loader = valid_loader
         self._valid_iter = iter(self._valid_loader)
-    
+
+        # If n_batches is not provided, iterate through
+        # the entire training set on each epoch.
         self._n_epochs = n_epochs
         if n_batches is None:
             self._n_batches = len(self._train_loader)
         else:
             self._n_batches = n_batches
 
+        # Decorate events we want to log
+        self._timing_log_handle = None
+        if timing_log is not None:
+            self._timing_log_handle = open(timing_log, "w", buffering=1)
+            self.get_next_training_batch = self._with_logging(self.get_next_training_batch, "get-training-batch")
+            self.get_next_validation_batch = self._with_logging(self.get_next_validation_batch, "get-validation-batch")
+            self.get_validation_loss = self._with_logging(self.get_validation_loss, "get-validation-loss")
+            self.train_one_epoch = self._with_logging(self.train_one_epoch, "epoch")
+            self.train = self._with_logging(self.train, "run")
+            
+    def _with_logging(self, f: Callable, event_name: str):
+        def add_timing(*args, **kwargs):
+            # Log start of event
+            t0 = time.time()
+            self._timing_log_handle.write(json.dumps(dict(
+               event = event_name + " start",
+                time=t0
+            )) + "\n")
+
+            # Run the event
+            ret = f(*args, **kwargs)
+
+            # Log how long it took
+            t1 = time.time()
+            self._timing_log_handle.write(json.dumps(dict(
+                event = event_name + " end",
+                time=t1,
+                duration = t1 - t0
+            )) + "\n")
+
+            return ret
+
+        return add_timing
+    
     def _reset_training_iter(self):
         self._train_iter = iter(self._train_loader)
 
