@@ -9,6 +9,7 @@ import time
 from typing import List, Dict
 import pandas as pd
 from tensorboard.backend.event_processing import event_accumulator
+import torchmetrics
 
 
 def parse_tensorboard(path: str, scalars: List[str]=None) -> Dict[str, pd.DataFrame]:
@@ -28,171 +29,145 @@ def parse_tensorboard(path: str, scalars: List[str]=None) -> Dict[str, pd.DataFr
     else:
         scalars = [s for s in ea.Tags()["scalars"]]
     return {k: pd.DataFrame(ea.Scalars(k)) for k in scalars}
-    
 
-class DummyWriter():
+class BaseTrainer():
     '''
-    Fake TensorBoard writer for when perf_log is None.
-    '''
-    def add_scalar(self, *args, **kwargs):
-        pass
-
-class Trainer():
-    '''
-    Class implementing a Torch training loop and logging.
+    Class implementing a Torch training loop.
     '''
     def __init__(self, model: torch.nn.Module, optimizer: torch.optim.Optimizer, loss: Callable,
                  train_loader: DataLoader, valid_loader: DataLoader,
-                 n_epochs: int=10, n_batches: int=None,
-                 model_log: str=None, perf_log: str=None, timing_log: str=None):
+                 metrics: list[torchmetrics.Metric]=[],
+                 n_epochs: int=10, n_batches: int=None, verbose: bool=True):
 
+        self._verbose = verbose
+        
         self._model = model
         self._optim = optimizer
         self._loss = loss
+
+        self._metrics = metrics
+
+        # Initialize a dict for storing metric results
+        self.history = {
+            "Train": {"Loss": []},
+            "Valid": {"Loss": []}
+        }
+        for m in self._metrics:
+            self.history["Train"][str(m)] = list()
+            self.history["Valid"][str(m)] = list()
         
         self._train_loader = train_loader
+        self._train_iter = iter(self._train_loader)
+        
         self._valid_loader = valid_loader
-        # Load the first batch so both loaders are "ready"
-        next(iter(self._train_loader))
-        next(iter(self._valid_loader))
-        
+        self._valid_iter = iter(self._valid_loader)
+    
         self._n_epochs = n_epochs
-        self._n_batches = n_batches
-        self._model_log = model_log
-        
-        if timing_log is None:
-            self._log_handle = None
+        if n_batches is None:
+            self._n_batches = len(self._train_loader)
         else:
-            self._log_handle = open(timing_log, "w")
+            self._n_batches = n_batches
 
-        if perf_log is None:
-            self._writer = DummyWriter()
-        else:
-            self._writer = SummaryWriter(perf_log)
+    def _reset_training_iter(self):
+        self._train_iter = iter(self._train_loader)
 
-    def log_event(self, obj):
-        if self._log_handle:
-            self._log_handle.write(
-                json.dumps(obj) + "\n"
-            )
-
-    def train_one_epoch(self):
-        '''
-        Train on one epoch of data.
-        '''
-        t0, t1 = None, None
-        running_loss = 0
-        n_batches = self._n_batches
-        if not n_batches:
-            n_batches = len(self._train_loader)
-
-        t0 = time.time()
-        self.log_event(dict(
-                event="get-batch start",
-                time=t0,
-            ))
+    def _reset_validation_iter(self):
+        self._valid_iter = iter(self._valid_loader)
         
-        for i, data in enumerate(self._train_loader):
-            t1 = time.time()
-            self.log_event(dict(
-                event="get-batch end",
-                time=t1,
-                duration=t1-t0
-            ))
-            
-            # Every data instance is an input + label pair
-            inputs, labels = data
+    def get_next_training_batch(self):
+        try:
+            return next(self._train_iter)
+        except StopIteration:
+            self._reset_training_iter()
+            return None
 
-            t0 = time.time()
-            self.log_event(dict(
-                event="training start",
-                time=t0
-            ))
-            
-            # Zero your gradients for every batch!
-            self._optim.zero_grad()
-            
-            # Make predictions for this batch
-            outputs = self._model(inputs)
+    def get_next_validation_batch(self):
+        try:
+            return next(self._valid_iter)
+        except StopIteration:
+            self._reset_validation_iter()
+            return None
     
-            # Compute the loss and its gradients
-            loss = self._loss(outputs, labels)
-            loss.backward()
-    
-            # Adjust learning weights
-            self._optim.step()
-    
-            # Gather data
-            running_loss += loss.item() / n_batches
-
-            t1 = time.time()
-            self.log_event(dict(
-                event="training end",
-                time=t1,
-                duration=t1-t0
-            ))
-
-            # Stop epoch if n_batches is set
-            if self._n_batches and i == self._n_batches:
-                break
-
-            t0 = time.time()
-
-        # Calculate validation loss
-        running_vloss = 0
+    def get_validation_loss(self):
+        valid_loss = 0
         with torch.no_grad():
-            for i, vdata in enumerate(self._valid_loader):
-                vinputs, vlabels = vdata
-                voutputs = self._model(vinputs)
-                vloss = self._loss(voutputs, vlabels)
-                running_vloss += vloss / len(self._valid_loader)        
+            batch = self.get_next_validation_batch()
+            n_batches = 0
+            while batch is not None:
+                n_batches += 1
+                X, y = batch
+                output = self._model(X)
+
+                # Update loss
+                valid_loss += self._loss(output, y)
+
+                # Update metrics
+                for m in self._metrics:
+                    m(output, y)
+                    
+                batch = self.get_next_validation_batch()
+
+        # Append metrics to history and reset
+        for m in self._metrics:
+            self.history["Valid"][str(m)].append(m.compute())
+            m.reset()
+            
+        return valid_loss / n_batches
     
-        return running_loss, running_vloss
+    def train_one_epoch(self):
+        train_loss = 0
+        for i_batch in range(self._n_batches):
+            # If self._n_batches does not equal the length of the training
+            # DataLoader (e.g. when the training dataset is huge) we might
+            # exhaust the iterator in the middle of an epoch.
+            batch = self.get_next_training_batch()
+            if batch is None: 
+                batch = next(self._train_iter)
+
+            X, y = batch
+
+            self._optim.zero_grad()
+            outputs = self._model(X)
+            batch_loss = self._loss(outputs, y)
+
+            # Update weights
+            batch_loss.backward()
+            self._optim.step()
+
+            # Update metrics
+            for m in self._metrics:
+                m(outputs, y)
+
+            # Update loss
+            train_loss += batch_loss.item() / self._n_batches
+
+        # Append metrics to history and reset
+        for m in self._metrics:
+            self.history["Train"][str(m)].append(m.compute())
+            m.reset()
+            
+        return train_loss
 
     def train(self):
-        tstart = time.time()
-        self.log_event(dict(
-            event="run start",
-            time=tstart,
-            locals=dict()
-        ))
-        
-        best_vloss = np.inf
-        t0 = time.time()
-        self.log_event(dict(
-            event="epoch start",
-            time=t0
-        ))
-        for i in range(self._n_epochs):
-            tloss, vloss = self.train_one_epoch()
-
-            t1 = time.time()
-            self.log_event(dict(
-                event="epoch end",
-                time=t1,
-                duration=t1-t0
-            ))
+        for i_epoch in range(self._n_epochs):
+            train_loss = self.train_one_epoch()
+            valid_loss = self.get_validation_loss()
+            # Update history
+            self.history["Valid"]["Loss"].append(valid_loss)
+            self.history["Train"]["Loss"].append(train_loss)
             
-            print(f"Epoch {i+1}\t Training loss: {tloss:.4f}\t Validation loss: {vloss:.4f}")
-            
-            # Save model if it is better
-            if self._model_log is not None and vloss < best_vloss:
-                best_vloss = vloss
-                torch.save(self._model.state_dict(), self._model_log)
-            
-            # Save results
-            self._writer.add_scalar("Loss/train", tloss, i)
-            self._writer.add_scalar("Loss/valid", vloss, i)
-
-        tend = time.time()
-        self.log_event(dict(
-            event="run end",
-            time=tend,
-            duration=tend-tstart
-        ))
-        
-        if self._log_handle is not None:
-            self._log_handle.flush()
+            if self._verbose:
+                # Convert history to a table so we can print it nicely
+                print(f"Epoch {i_epoch+1}/{self._n_epochs}")
+                table = pd.DataFrame(
+                    data=[
+                        [self.history["Train"][key][-1], self.history["Valid"][key][-1]]
+                        for key in sorted(list(self.history["Train"].keys()))
+                    ],
+                    columns=["Train", "Valid"],
+                    index=sorted(list(self.history["Train"].keys()))
+                )
+                print(table)
 
 # Based on
 # https://github.com/earth-mover/dataloader-demo/blob/main/main.py
@@ -253,24 +228,6 @@ class DamageConv3D(torch.nn.Module):
         x = self.fc2(x)
         x = self.sigmoid(x)
         return x
-
-class SinglePixelFC(torch.nn.Module):
-    '''
-    Simple fully-connected NN for use with single pixels.
-    '''
-    def __init__(self):
-        super(SinglePixelFC, self).__init__()
-        self.bn = torch.nn.BatchNorm1d()
-        self.tanh = torch.nn.Tanh()
-        self.sigmoid = torch.nn.Sigmoid()
-        self.drop = torch.nn.Dropout(p=0.2)
-        self.fc1 = torch.nn.Linear(128)
-        self.fc2 = torch.nn.Linear(64)
-        self.fc3 = torch.nn.Linear(16)
-        self.out = torch.nn.Linear(1)
-
-    def forward(self, x):
-        pass
         
         
 
