@@ -1,8 +1,6 @@
 import pandas as pd
 import xarray as xr
 import numpy as np
-from google.cloud.storage import Client
-from .gcs import read_gcs_csv
 
 def df_to_xr(df: pd.DataFrame, drop_cols: list[str]=[], index_cols: list[str]=[], sparse=False) -> xr.Dataset:
     '''
@@ -75,8 +73,15 @@ def make_preisler_dataframe() -> pd.DataFrame:
     Utility function to load the Preisler dataset we use as a benchmark. See make_preisler_dataset
     for details on the data transformations involved.
     '''
-    client = Client(project="forest-lst")
-    df = read_gcs_csv(client, "preisler_tfdata", "preisler-rectangular")
+    try:
+        from google.cloud.storage import Client
+        from .gcs import read_gcs_csv
+        client = Client(project="forest-lst")
+        df = read_gcs_csv(client, "preisler_tfdata", "preisler-rectangular")
+    except ImportError:
+        raise RuntimeError("GCS client library not found. You will need to load the Preisler dataset yourself"
+                           "and pass it to make_preisler_dataset() yourself.")
+        
     df_xr = df_to_xr(df, ["system:index", ".geo"], ["latitude", "longitude", "year"], sparse=False)
     return make_preisler_dataset(df_xr).to_dataframe().dropna()
 
