@@ -8,7 +8,7 @@ import rioxarray
 # Read data
 MTBS_PATH   = "data_in/mtbs/mtbs_perims_DD.shp"
 OUTPUT_DIR  = "data_working/mtbs_rasters"
-TEMPLATE    = "data_working/damage_rasters/2000.tif"
+TEMPLATE    = "data_working/damage_rasters/2010.tif"
 TEMPLATE_CRS = "EPSG:3857"
 
 mtbs_ds     = gdal.OpenEx(MTBS_PATH, 0)

@@ -1,0 +1,94 @@
+# This file defines a snakefile for creating the west_mort dataset.
+REGIONS = [3, 4, 5, 6]
+DATA_IN="data_in"
+DATA_WORKING="data_working"
+
+import os
+os.makedirs(DATA_IN, exist_ok=True)
+os.makedirs(DATA_WORKING, exist_ok=True)
+
+rule all:
+    input:
+        os.path.join(DATA_WORKING, "terrain.nc"),
+        os.path.join(DATA_WORKING, "forest_cover.tif"),
+        os.path.join(DATA_WORKING, "forest_cover.tif"),
+        os.path.join(DATA_WORKING, "mtbs_rasters/2010.tif"),
+        os.path.join(DATA_WORKING, "summer_vod.nc")
+
+rule download_ads:
+    input:
+    output:
+        expand(os.path.join(DATA_IN, "ads/CONUS_Region{n}_AllYears.gdb/timestamps"), n=REGIONS)
+    shell:
+        "./scripts/west_mort/download_ads.sh {DATA_IN}"
+
+rule download_mtbs:
+    input:
+    output:
+        os.path.join(DATA_IN, "mtbs/mtbs_perims_DD.shp")
+    shell:
+        f"./scripts/west_mort/download_mtbs.sh {DATA_IN}"
+
+rule download_vodca:
+    input:
+    output:
+        temp(os.path.join(DATA_IN, "vodca/VODCA_X-band_1997-2018_v01.0.0.zip"))
+    shell:
+        f"./scripts/west_mort/download_vodca.sh {DATA_IN}"
+
+rule process_vodca:
+    input:
+        os.path.join(DATA_WORKING, "damage_rasters/2010.tif"),
+        os.path.join(DATA_IN, "vodca/VODCA_X-band_1997-2018_v01.0.0.zip")
+    output:
+        os.path.join(DATA_WORKING, "summer_vod.nc")
+    shell:
+        "python scripts/west_mort/process_vodca.py"
+
+rule download_nlcd:
+    input:
+    output:
+        os.path.join(DATA_IN, "nlcd/nlcd_tcc_conus_2021_v2021-4.tif")
+    shell:
+        "./scripts/west_mort/download_nlcd.sh {DATA_IN}"
+
+rule merge_ads:
+    input:
+        expand(os.path.join(DATA_IN, "ads/CONUS_Region{n}_AllYears.gdb/timestamps"), n=REGIONS)
+    output:
+        os.path.join(DATA_WORKING, "damage_merged.gdb/timestamps"),
+        os.path.join(DATA_WORKING, "survey_merged.gdb/timestamps")
+    shell:
+        # Snakemake automatically creates the .gdb folders, but this prevents gdal from making the dataset.
+        # So we have to prepend the script with a rm -r to delete the directories.
+        "rm -r data_working/damage_merged.gdb data_working/survey_merged.gdb && ./scripts/west_mort/merge_ads_polygons.sh"
+
+rule burn_ads:
+    input:
+        os.path.join(DATA_WORKING, "damage_merged.gdb/timestamps"),
+        os.path.join(DATA_WORKING, "survey_merged.gdb/timestamps"),
+        os.path.join(DATA_IN, "nlcd/nlcd_tcc_conus_2021_v2021-4.tif")
+    output:
+        os.path.join(DATA_WORKING, "forest_cover.tif"),
+        os.path.join(DATA_WORKING, "forest_mask.tif"),
+        os.path.join(DATA_WORKING, "damage_rasters/2010.tif")
+    shell:
+        "python scripts/west_mort/burn_ads_polygons.py"
+
+rule terrain:
+    input:
+        os.path.join(DATA_WORKING, f"damage_rasters/2010.tif")
+    output:
+        os.path.join(DATA_WORKING, "terrain.nc")
+    shell:
+        "python scripts/west_mort/download_terrain.py"
+
+rule burn_mtbs:
+    input: 
+        os.path.join(DATA_WORKING, f"damage_rasters/2010.tif"),
+        os.path.join(DATA_IN, "mtbs/mtbs_perims_DD.shp"),
+    output:
+        os.path.join(DATA_WORKING, f"mtbs_rasters/2010.tif")
+    shell:
+        "python scripts/west_mort/burn_mtbs_polygons.py"
+        
