@@ -8,3 +8,4 @@ tmp/
 logs/
 presentations/
 map.qgz
+.snakemake/
