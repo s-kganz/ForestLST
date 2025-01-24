@@ -11,7 +11,8 @@ import pandas as pd
 import xbatcher
 from tensorboard.backend.event_processing import event_accumulator
 import torchmetrics
-
+import warnings
+import os
 
 def parse_tensorboard(path: str, scalars: List[str] = None) -> Dict[str, pd.DataFrame]:
     """
@@ -49,6 +50,8 @@ class BaseTrainer:
         n_batches: int = None,
         verbose: bool = True,
         timing_log: str = None,
+        tensorboard_log: str = None,
+        model_log: str = None
     ):
 
         self._verbose = verbose
@@ -60,10 +63,7 @@ class BaseTrainer:
         self._metrics = metrics
 
         # Initialize a dict for storing metric results
-        self.history = {"Train": {"Loss": []}, "Valid": {"Loss": []}}
-        for m in self._metrics:
-            self.history["Train"][str(m)] = list()
-            self.history["Valid"][str(m)] = list()
+        self.history = dict()
 
         # Initialize dataloaders
         self._train_loader = train_loader
@@ -96,6 +96,43 @@ class BaseTrainer:
             self.train_one_epoch = self._with_logging(self.train_one_epoch, "epoch")
             self.train = self._with_logging(self.train, "run")
 
+        # Create handle for tensorboard log
+        if tensorboard_log is not None:
+            if os.path.exists(tensorboard_log):
+                warnings.warn(f"Log already exists at {tensorboard_log}")
+            self.writer = SummaryWriter(tensorboard_log)
+        else:
+            self.writer = None
+
+        # Hang on to the model path
+        if model_log is not None:
+            self._model_log = model_log
+            if os.path.exists(model_log):
+                warnings.warn(
+                    f"Saved model already exists at {model_log}. "
+                     "This will be overwritten on first epoch!"
+                )
+            
+    def _log_scalar(self, key, value, step):
+        '''
+        Adds a key/value pair to the tensorboard log (if set) and to the
+        local history dict.
+        '''
+        if key in self.history:
+            self.history[key].append(value)
+        else:
+            self.history[key] = [value]
+
+        if self.writer is not None:
+            self.writer.add_scalar(key, value, step)
+
+    def _log_model(self):
+        '''
+        Save the model state dict.
+        '''
+        if self._model_log is not None:
+            torch.save(self._model.state_dict(), self._model_log)
+    
     def _with_logging(self, f: Callable, event_name: str):
         def add_timing(*args, **kwargs):
             # Log start of event
@@ -138,7 +175,7 @@ class BaseTrainer:
             self._reset_validation_iter()
             return None
 
-    def get_validation_loss(self):
+    def get_validation_loss(self, epoch: int):
         valid_loss = 0
         with torch.no_grad():
             batch = self.get_next_validation_batch()
@@ -159,12 +196,12 @@ class BaseTrainer:
 
         # Append metrics to history and reset
         for m in self._metrics:
-            self.history["Valid"][str(m)].append(m.compute())
+            self._log_scalar(str(m) + "/valid", m.compute(), epoch)
             m.reset()
 
         return valid_loss / n_batches
 
-    def train_one_epoch(self):
+    def train_one_epoch(self, epoch: int):
         train_loss = 0
         for i_batch in range(self._n_batches):
             # If self._n_batches does not equal the length of the training
@@ -193,31 +230,40 @@ class BaseTrainer:
 
         # Append metrics to history and reset
         for m in self._metrics:
-            self.history["Train"][str(m)].append(m.compute())
+            self._log_scalar(str(m) + "/train", m.compute(), epoch)
             m.reset()
 
         return train_loss
 
     def train(self):
+        best_loss = float("Inf")
         for i_epoch in range(self._n_epochs):
-            train_loss = self.train_one_epoch()
-            valid_loss = self.get_validation_loss()
+            train_loss = self.train_one_epoch(i_epoch)
+            valid_loss = self.get_validation_loss(i_epoch)
             # Update history
-            self.history["Valid"]["Loss"].append(valid_loss)
-            self.history["Train"]["Loss"].append(train_loss)
+            self._log_scalar("Loss/train", train_loss, i_epoch)
+            self._log_scalar("Loss/valid", valid_loss, i_epoch)
+
+            # Maybe log the model
+            if valid_loss < best_loss:
+                best_loss = valid_loss
+                self._log_model()
 
             if self._verbose:
+                keys = sorted(list(set(map(lambda x: x[:x.find("/")], list(self.history.keys())))))
+                data = [
+                    [self.history[key+"/train"][-1], self.history[key+"/valid"][-1]]
+                     for key in keys
+                ]
+                table = pd.DataFrame(
+                    data=data,
+                    columns=["Train", "Valid"],
+                    index=keys
+                )
                 # Convert history to a table so we can print it nicely
                 print(f"Epoch {i_epoch+1}/{self._n_epochs}")
-                table = pd.DataFrame(
-                    data=[
-                        [self.history["Train"][key][-1], self.history["Valid"][key][-1]]
-                        for key in sorted(list(self.history["Train"].keys()))
-                    ],
-                    columns=["Train", "Valid"],
-                    index=sorted(list(self.history["Train"].keys())),
-                )
                 print(table)
+                print()
 
 
 # Based on
