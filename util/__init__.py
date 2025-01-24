@@ -12,6 +12,7 @@ try:
 except ImportError:
     try:
         from . import training_torch as training
+        from . import convlstm
     except ImportError:
         warnings.warn("Neither TensorFlow nor PyTorch found! Module util.training will not be loaded.")
 
