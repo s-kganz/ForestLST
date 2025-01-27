@@ -287,27 +287,38 @@ class XBatcherPyTorchDataset(Dataset):
 class WindowXarrayDataset(Dataset):
     """
     A class providing an interface for a torch Dataset to pull examples from
-    arbitrary windows of a DataArray. Functions by determining the indices
-    of valid windows and then extracting those windows from the array
-    through __get__.
+    arbitrary windows of a xr.Dataset or xr.DataArray. Determines the indices
+    of valid windows and then extracting those windows through __get__.
 
+    Provide either a xr.DataArray or xr.Dataset to the data argument. If xr.DataArray,
+    valid windows are derived from the array. If xr.Dataset, mask_var must be set. This
+    variable will be used to determine valid windows. If your variables have different
+    amounts of missing data, either construct a separate mask variable or use
+    the variable with the fewest valid windows.
+    
     window_size defines how windowing is performed. Each key of window_size should
     be a coordinate in array. Values should be tuple[int, bool]. The first element
     defines the window size, while the center defines whether the window
     is centered (True) or right-padded (False).
     """
 
-    def __init__(self, array: xr.DataArray, window: dict[str, tuple[int, bool]]):
-        self.array = array
+    def __init__(self, data: xr.DataArray | xr.Dataset,
+                 window: dict[str, tuple[int, bool]],
+                 mask_var: str | None=None,):
+        
+        self.data = data
         
         # Check input
-        assert set(array.dims).issuperset(
+        assert set(data.dims).issuperset(
             window.keys()
         ), "All keys in window must be coordinates in the array"
 
-        nonwindow_dims = set(array.dims) - window.keys()
+        if mask_var is not None:
+            assert mask_var in [var.name for var in data.data_vars], "Mask variable must be present in the dataset"
 
-        # Define offsets, 
+        nonwindow_dims = set(data.dims) - window.keys()
+
+        # Define offsets and window sizes
         self.offset = dict()
         self.window_size = dict()
         self.is_centered = dict()
@@ -319,32 +330,43 @@ class WindowXarrayDataset(Dataset):
             else:
                 self.offset[coord] = (-size + 1, 1)
 
+        # Dimensions not specified always have size 1
         for nwd in nonwindow_dims:
             self.offset[nwd] = (0, 1)
 
         # Determine indices where there are valid windows. Note that all
         # array dimensions, not just the window ones, are included here.
-        self.valid_indices = self._get_valid_indices()
+        if isinstance(data, xr.DataArray):
+            array = data
+        elif isinstance(data, xr.Dataset):
+            array = data[mask_var]
+        else:
+            raise ValueError(
+                "Input data must be either xr.Dataset" 
+                "or xr.DataArray"
+            )
+            
+        self.valid_indices = self._get_valid_indices(array)
 
-    def _get_valid_indices(self):
+    def _get_valid_indices(self, array):
         """
         Determine which indices contain non-na windows in the array.
         """
         # How to make sure the coordinate order is right?
         indices = np.where(
-            self.array.rolling(dim=self.window_size, center=self.is_centered)
+            array.rolling(dim=self.window_size, center=self.is_centered)
             .mean()
             .notnull()
         )
         ret = dict()
-        for i in range(len(self.array.dims)):
-            ret[self.array.dims[i]] = indices[i]
+        for i in range(len(array.dims)):
+            ret[array.dims[i]] = indices[i]
         return ret
 
     def __len__(self):
         return next(iter(self.valid_indices.values())).shape[0]
 
-    def _get_window(self, idx: int):
+    def __getitem__(self, idx: int):
         # Get coordinates of the window
         slicers = {
             k: slice(
@@ -354,24 +376,7 @@ class WindowXarrayDataset(Dataset):
             for k in self.valid_indices
         }
         # Extract
-        return self.array.isel(**slicers)
-
-    def _window_to_example(self, window: xr.DataArray):
-        """
-        Convert an arbitrary window to X, y tuple of tensors for training.
-        Users should overload this function to implement custom behavior.
-        """
-        return window.isel(year=slice(None, -1)), window.isel(year=-1)
-
-    def __getitem__(self, idx):
-        """
-        Return the X, y tuple corresponding to the training example at idx. This
-        is the function Torch actually interacts with.
-        """
-        window = self._get_window(idx)
-        X, y = self._window_to_example(window)
-        return torch.Tensor(X.values), torch.Tensor(y.values)
-
+        return self.data.isel(**slicers)
 
 class DamageConv3D(torch.nn.Module):
     """
