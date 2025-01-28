@@ -197,7 +197,7 @@ class BaseTrainer:
 
         # Append metrics to history and reset
         for m in self._metrics:
-            self._log_scalar(str(m) + "/valid", m.compute(), epoch)
+            self._log_scalar(str(m) + "/valid", m.compute().cpu().numpy(), epoch)
             m.reset()
 
         return valid_loss / n_batches
@@ -236,7 +236,7 @@ class BaseTrainer:
 
         # Append metrics to history and reset
         for m in self._metrics:
-            self._log_scalar(str(m) + "/train", m.compute(), epoch)
+            self._log_scalar(str(m) + "/train", m.compute().cpu().numpy(), epoch)
             m.reset()
 
         return train_loss
