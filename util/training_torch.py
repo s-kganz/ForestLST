@@ -83,7 +83,7 @@ class BaseTrainer:
         # Decorate events we want to log
         self._timing_log_handle = None
         if timing_log is not None:
-            self._timing_log_handle = open(timing_log, "w", buffering=1)
+            self._timing_log_handle = open(timing_log, "w+", buffering=1)
             self.get_next_training_batch = self._with_logging(
                 self.get_next_training_batch, "get-training-batch"
             )
@@ -94,6 +94,7 @@ class BaseTrainer:
                 self.get_validation_loss, "get-validation-loss"
             )
             self.train_one_epoch = self._with_logging(self.train_one_epoch, "epoch")
+            self.train_one_batch = self._with_logging(self.train_one_batch, "training")
             self.train = self._with_logging(self.train, "run")
 
         # Create handle for tensorboard log
@@ -201,6 +202,23 @@ class BaseTrainer:
 
         return valid_loss / n_batches
 
+    def train_one_batch(self, batch):
+        X, y = batch
+        
+        self._optim.zero_grad()
+        outputs = self._model(X)
+        batch_loss = self._loss(outputs, y)
+
+        # Update weights
+        batch_loss.backward()
+        self._optim.step()
+
+        # Update metrics
+        for m in self._metrics:
+            m(outputs, y)
+
+        return batch_loss.item()
+    
     def train_one_epoch(self, epoch: int):
         train_loss = 0
         for i_batch in range(self._n_batches):
@@ -211,22 +229,10 @@ class BaseTrainer:
             if batch is None:
                 batch = next(self._train_iter)
 
-            X, y = batch
-
-            self._optim.zero_grad()
-            outputs = self._model(X)
-            batch_loss = self._loss(outputs, y)
-
-            # Update weights
-            batch_loss.backward()
-            self._optim.step()
-
-            # Update metrics
-            for m in self._metrics:
-                m(outputs, y)
+            batch_loss = self.train_one_batch(batch)
 
             # Update loss
-            train_loss += batch_loss.item() / self._n_batches
+            train_loss += batch_loss / self._n_batches
 
         # Append metrics to history and reset
         for m in self._metrics:
@@ -300,6 +306,10 @@ class WindowXarrayDataset(Dataset):
     be a coordinate in array. Values should be tuple[int, bool]. The first element
     defines the window size, while the center defines whether the window
     is centered (True) or right-padded (False).
+
+    Note that this class outputs slices of the underlying data, but does not
+    separate them into X, y or convert them to tensors. That logic should be
+    implemented in the collate_fn passed to the DataLoader.
     """
 
     def __init__(self, data: xr.DataArray | xr.Dataset,
@@ -313,8 +323,8 @@ class WindowXarrayDataset(Dataset):
             window.keys()
         ), "All keys in window must be coordinates in the array"
 
-        if mask_var is not None:
-            assert mask_var in [var.name for var in data.data_vars], "Mask variable must be present in the dataset"
+        if isinstance(data, xr.Dataset):
+            assert mask_var in [var for var in data.data_vars], "Mask variable must be present in the dataset"
 
         nonwindow_dims = set(data.dims) - window.keys()
 
@@ -348,7 +358,7 @@ class WindowXarrayDataset(Dataset):
             
         self.valid_indices = self._get_valid_indices(array)
 
-    def _get_valid_indices(self, array):
+    def _get_valid_indices(self, array) -> dict[str, np.array]:
         """
         Determine which indices contain non-na windows in the array.
         """
@@ -363,10 +373,10 @@ class WindowXarrayDataset(Dataset):
             ret[array.dims[i]] = indices[i]
         return ret
 
-    def __len__(self):
+    def __len__(self) -> int:
         return next(iter(self.valid_indices.values())).shape[0]
 
-    def __getitem__(self, idx: int):
+    def __getitem__(self, idx: int) -> xr.DataArray | xr.Dataset:
         # Get coordinates of the window
         slicers = {
             k: slice(
