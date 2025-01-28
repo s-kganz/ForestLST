@@ -28,10 +28,15 @@ def plot_wait_time(messages, ax, title="Time waiting"):
 
     wait_times = []
     end = None
+    in_training = True
     for m in messages:
+        if m["event"] == "epoch end":
+            in_training = False
+        if m["event"] == "epoch":
+            in_training = True
         if m["event"] == "training end":
             end = m["time"]
-        if m["event"] == "training start" and end is not None:
+        if m["event"] == "training start" and end is not None and in_training:
             wait_times.append(m["time"] - end)
 
     wait_times = np.array(wait_times)
@@ -47,7 +52,7 @@ def plot_log(messages, ax, title=""):
     origin = messages[0]["time"]
     assert messages[0]["event"] == "run start"
 
-    rows = {"setup": 3, "get-batch": 2, "train": 1, "epoch": 0}
+    rows = {"setup": 4, "get-training-batch": 3, "get-validation-batch": 2, "train": 1, "epoch": 0}
 
     ax.set_yticks(list(rows.values()), labels=list(rows))
 
@@ -70,9 +75,9 @@ def plot_log(messages, ax, title=""):
                 zorder=1,
             )
 
-        if m["event"] == "get-batch end":
+        if m["event"] == "get-training-batch end":
             ax.barh(
-                rows["get-batch"],
+                rows["get-training-batch"],
                 m["duration"],
                 left=t - m["duration"],
                 # alpha=0.5,
@@ -80,6 +85,17 @@ def plot_log(messages, ax, title=""):
                 zorder=1,
             )
             data["batches"].append(m["duration"])
+
+        if m["event"] == "get-validation-batch end":
+            ax.barh(
+                rows["get-validation-batch"],
+                m["duration"],
+                left=t - m["duration"],
+                # alpha=0.5,
+                color="#C396F9",
+                zorder=1,
+            )
+            #data["batches"].append(m["duration"])
 
         if m["event"] == "training end":
             ax.barh(
@@ -116,12 +132,12 @@ def plot(fname):
 
     for m in messages:
         if m["event"] == "run start":
-            text_str = "\n".join([f"{k}: {v}" for k, v in m["locals"].items() if v is not None])
+            # text_str = "\n".join([f"{k}: {v}" for k, v in m["locals"].items() if v is not None])
             props = dict(boxstyle="round", facecolor="#F5F5F5", alpha=0.5)
             fig.text(
                 0.5,
                 -0.03,
-                text_str,
+                "",
                 fontsize=14,
                 horizontalalignment="center",
                 verticalalignment="top",
