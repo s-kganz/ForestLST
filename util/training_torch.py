@@ -42,6 +42,7 @@ class BaseTrainer:
         self,
         model: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
+        scheduler: torch.optim.lr_scheduler.LRScheduler,
         loss: Callable,
         train_loader: DataLoader,
         valid_loader: DataLoader,
@@ -58,6 +59,7 @@ class BaseTrainer:
 
         self._model = model
         self._optim = optimizer
+        self._scheduler = scheduler
         self._loss = loss
 
         self._metrics = metrics
@@ -200,7 +202,7 @@ class BaseTrainer:
             self._log_scalar(str(m) + "/valid", m.compute().cpu().numpy(), epoch)
             m.reset()
 
-        return valid_loss / n_batches
+        return valid_loss.cpu() / n_batches
 
     def train_one_batch(self, batch):
         X, y = batch
@@ -241,6 +243,22 @@ class BaseTrainer:
 
         return train_loss
 
+    def status_table(self):
+        # Compiles all the most recent values in the history object
+        data = [
+            [key, self.history[key][-1]]
+            for key in self.history
+        ]
+        data.sort(key=lambda x: x[0])
+        table = pd.DataFrame(
+            data=data,
+            columns=["Key", "Value"],
+        )
+        return table
+
+    def update_lr(self, train_loss, valid_loss):
+        self._scheduler.step()
+    
     def train(self):
         best_loss = float("Inf")
         for i_epoch in range(self._n_epochs):
@@ -249,6 +267,9 @@ class BaseTrainer:
             # Update history
             self._log_scalar("Loss/train", train_loss, i_epoch)
             self._log_scalar("Loss/valid", valid_loss, i_epoch)
+            # Update scheduler
+            self.update_lr(train_loss, valid_loss)
+            self._log_scalar("LearningRate", self._scheduler.get_last_lr()[0], i_epoch)
 
             # Maybe log the model
             if valid_loss < best_loss:
@@ -256,19 +277,9 @@ class BaseTrainer:
                 self._log_model()
 
             if self._verbose:
-                keys = sorted(list(set(map(lambda x: x[:x.find("/")], list(self.history.keys())))))
-                data = [
-                    [self.history[key+"/train"][-1], self.history[key+"/valid"][-1]]
-                     for key in keys
-                ]
-                table = pd.DataFrame(
-                    data=data,
-                    columns=["Train", "Valid"],
-                    index=keys
-                )
-                # Convert history to a table so we can print it nicely
-                print(f"Epoch {i_epoch+1}/{self._n_epochs}")
-                print(table)
+                status = self.status_table()
+                print(f"Epoch {i_epoch+1} of {self._n_epochs}")
+                print(status)
                 print()
 
 
