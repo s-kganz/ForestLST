@@ -12,7 +12,7 @@ import torch
 
 class ConvLSTMCell(nn.Module):
 
-    def __init__(self, input_dim, hidden_dim, kernel_size, bias):
+    def __init__(self, input_dim, hidden_dim, kernel_size, bias, dropout=0):
         """
         Initialize ConvLSTM cell.
 
@@ -42,6 +42,7 @@ class ConvLSTMCell(nn.Module):
                               kernel_size=self.kernel_size,
                               padding=self.padding,
                               bias=self.bias)
+        self.drop = nn.Dropout(p=dropout)
 
     def forward(self, input_tensor, cur_state):
         h_cur, c_cur = cur_state
@@ -57,6 +58,9 @@ class ConvLSTMCell(nn.Module):
 
         c_next = f * c_cur + i * g
         h_next = o * torch.tanh(c_next)
+
+        h_next = self.drop(h_next)
+        c_next = self.drop(c_next)
 
         return h_next, c_next
 
@@ -95,7 +99,7 @@ class ConvLSTM(nn.Module):
     """
 
     def __init__(self, input_dim, hidden_dim, kernel_size, num_layers,
-                 batch_first=False, bias=True, return_all_layers=False):
+                 dropout=0.1, batch_first=False, bias=True, return_all_layers=False):
         super(ConvLSTM, self).__init__()
 
         self._check_kernel_size_consistency(kernel_size)
@@ -121,7 +125,8 @@ class ConvLSTM(nn.Module):
             cell_list.append(ConvLSTMCell(input_dim=cur_input_dim,
                                           hidden_dim=self.hidden_dim[i],
                                           kernel_size=self.kernel_size[i],
-                                          bias=self.bias))
+                                          bias=self.bias,
+                                          dropout=dropout))
 
         self.cell_list = nn.ModuleList(cell_list)
 

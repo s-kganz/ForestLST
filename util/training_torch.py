@@ -263,7 +263,10 @@ class BaseTrainer:
         best_loss = float("Inf")
         for i_epoch in range(self._n_epochs):
             train_loss = self.train_one_epoch(i_epoch)
+            self._model.eval()
             valid_loss = self.get_validation_loss(i_epoch)
+            self._model.train()
+            
             # Update history
             self._log_scalar("Loss/train", train_loss, i_epoch)
             self._log_scalar("Loss/valid", valid_loss, i_epoch)
