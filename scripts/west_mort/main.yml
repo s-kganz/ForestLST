@@ -10,12 +10,22 @@ os.makedirs(DATA_WORKING, exist_ok=True)
 
 rule all:
     input:
+        os.path.join(DATA_WORKING, "camort.nc"),
+        os.path.join(DATA_WORKING, "westmort.nc")
+
+rule combine:
+    input:
         os.path.join(DATA_WORKING, "terrain.nc"),
-        os.path.join(DATA_WORKING, "forest_cover.tif"),
         os.path.join(DATA_WORKING, "forest_cover.tif"),
         os.path.join(DATA_WORKING, "mtbs_rasters/2010.tif"),
         os.path.join(DATA_WORKING, "summer_vod.nc"),
-        expand(os.path.join(DATA_WORKING, "daymet", "{y}.nc"), y=YEARS)
+        expand(os.path.join(DATA_WORKING, "daymet", "{y}.nc"), y=YEARS),
+        os.path.join(DATA_WORKING, "damage_rasters/2010.tif")
+    output:
+        os.path.join(DATA_WORKING, "camort.nc"),
+        os.path.join(DATA_WORKING, "westmort.nc")
+    shell:
+        "python scripts/west_mort/combine_data.py"
 
 rule download_ads:
     input:
