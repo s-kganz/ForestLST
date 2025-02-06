@@ -108,8 +108,8 @@ class BaseTrainer:
             self.writer = None
 
         # Hang on to the model path
+        self._model_log = model_log
         if model_log is not None:
-            self._model_log = model_log
             if os.path.exists(model_log):
                 warnings.warn(
                     f"Saved model already exists at {model_log}. "
