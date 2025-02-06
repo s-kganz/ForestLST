@@ -27,7 +27,7 @@ FAM_DIR       = os.path.join(OUTPUT_DIR, "fam_rasters")
 # Processing settings
 TCC_THRESHOLD = 30 # pixel percent cover to count as forested
 FINE_RES      = 100 # m, initial rasterization resolution
-COARSE_RES    = 1000 # m, final rasterization resolution
+COARSE_RES    = 4000 # m, final rasterization resolution
 OUT_SREF      = "EPSG:3857"
 
 for d in (OUTPUT_DIR, DAMAGE_DIR, FAM_DIR):

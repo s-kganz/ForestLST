@@ -2,6 +2,7 @@
 REGIONS = [3, 4, 5, 6]
 DATA_IN="data_in"
 DATA_WORKING="data_working"
+YEARS=list(range(1997, 2024))
 
 import os
 os.makedirs(DATA_IN, exist_ok=True)
@@ -13,7 +14,8 @@ rule all:
         os.path.join(DATA_WORKING, "forest_cover.tif"),
         os.path.join(DATA_WORKING, "forest_cover.tif"),
         os.path.join(DATA_WORKING, "mtbs_rasters/2010.tif"),
-        os.path.join(DATA_WORKING, "summer_vod.nc")
+        os.path.join(DATA_WORKING, "summer_vod.nc"),
+        expand(os.path.join(DATA_WORKING, "daymet", "{y}.nc"), y=YEARS)
 
 rule download_ads:
     input:
@@ -77,7 +79,7 @@ rule burn_ads:
 
 rule terrain:
     input:
-        os.path.join(DATA_WORKING, f"damage_rasters/2010.tif")
+        os.path.join(DATA_WORKING, "damage_rasters/2010.tif")
     output:
         os.path.join(DATA_WORKING, "terrain.nc")
     shell:
@@ -85,10 +87,18 @@ rule terrain:
 
 rule burn_mtbs:
     input: 
-        os.path.join(DATA_WORKING, f"damage_rasters/2010.tif"),
+        os.path.join(DATA_WORKING, "damage_rasters/2010.tif"),
         os.path.join(DATA_IN, "mtbs/mtbs_perims_DD.shp"),
     output:
-        os.path.join(DATA_WORKING, f"mtbs_rasters/2010.tif")
+        os.path.join(DATA_WORKING, "mtbs_rasters/2010.tif")
     shell:
         "python scripts/west_mort/burn_mtbs_polygons.py"
+
+rule daymet:
+    input:
+        os.path.join(DATA_WORKING, "damage_rasters/2010.tif"),
+    output:
+        os.path.join(DATA_WORKING, "daymet", "{y}.nc")
+    shell:
+        "python scripts/west_mort/download_daymet.py {wildcards.y}"
         

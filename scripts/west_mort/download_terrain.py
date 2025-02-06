@@ -6,6 +6,7 @@ to a temporary directory and merged with GDAL.
 
 from osgeo import gdal
 import os
+import sys
 import glob
 import tempfile
 import xarray as xr
@@ -38,7 +39,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tempdir:
     merged = "data_working/elev_merged.tif"
     # Have to coarsen here otherwise the file will be way too big
     g = gdal.Warp(merged, files_to_merge, 
-                  xRes=1000, yRes=1000, format="GTiff",
+                  xRes=4000, yRes=4000, format="GTiff",
                   dstSRS="EPSG:3857")
     g = None
     # Reproject to match the target

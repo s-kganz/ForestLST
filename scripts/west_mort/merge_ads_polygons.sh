@@ -15,7 +15,7 @@ for f in $INPUT_DIRECTORY/*.gdb; do
     damage_layer=DAMAGE_AREAS_FLAT_AllYears_CONUS_Rgn${region}
     survey_layer=SURVEYED_AREAS_FLAT_AllYears_CONUS_Rgn${region}
 
-    damage_sql="SELECT SHAPE,SURVEY_YEAR,DCA_CODE,PERCENT_MID,ifnull(PERCENT_MID, 100) AS SEVERITY FROM $damage_layer WHERE DCA_CODE/1000 = 11 OR DCA_CODE/1000 = 15 OR DCA_CODE=50003"
+    damage_sql="SELECT SHAPE,SURVEY_YEAR,DCA_CODE,PERCENT_MID,ifnull(PERCENT_MID, 100) AS SEVERITY FROM $damage_layer WHERE ST_Area(SHAPE) > 10000 AND (DCA_CODE/1000 = 11 OR DCA_CODE/1000 = 15 OR DCA_CODE=50003)"
     
     ogr2ogr $DAMAGE_TEMP/$bname $f -dialect SQLite -sql "$damage_sql" -nln damage -overwrite
     ogr2ogr $SURVEY_TEMP/$bname $f $survey_layer -select $SURVEY_FIELDS -overwrite
@@ -27,8 +27,8 @@ survey_files=$(find $SURVEY_TEMP -maxdepth 1 -mindepth 1)
 echo $damage_files
 echo $survey_files
 
-ogrmerge -o $OUTPUT_DIRECTORY/damage_merged.gdb $damage_files -single -overwrite_ds -progress -t_srs "EPSG:3857"
-ogrmerge -o $OUTPUT_DIRECTORY/survey_merged.gdb $survey_files -single -overwrite_ds -progress -t_srs "EPSG:3857"
+ogrmerge -o $OUTPUT_DIRECTORY/damage_merged.gdb $damage_files -single -overwrite_ds -progress -s_srs "ESRI:102039" -t_srs "EPSG:3857"
+ogrmerge -o $OUTPUT_DIRECTORY/survey_merged.gdb $survey_files -single -overwrite_ds -progress -s_srs "ESRI:102039" -t_srs "EPSG:3857"
 
 rm -rf $DAMAGE_TEMP
 rm -rf $SURVEY_TEMP
