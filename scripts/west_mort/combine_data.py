@@ -54,6 +54,7 @@ if __name__ == "__main__":
     ).chunk(**CHUNK_SCHEMA)
 
     treecover = xr.open_dataset("data_working/forest_cover.tif")\
+        .squeeze(drop=True)\
         .drop_vars(["spatial_ref", "band"])\
         .rename(band_data="treecover")\
         .expand_dims(time=damage.time.shape[0])\
