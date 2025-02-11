@@ -202,3 +202,38 @@ class ConvLSTM(nn.Module):
         if not isinstance(param, list):
             param = [param] * num_layers
         return param
+
+class DamageConvLSTM(torch.nn.Module):
+    '''
+    Conv LSTM taking tensors of shape (N, T, C, H, W) and outputting (N, H, W)
+    '''
+    def __init__(self, input_dim, hidden_dim, kernel_size, num_layers,
+                 dropout=0, batch_first=False, bias=True, return_all_layers=False):
+        super(DamageConvLSTM, self).__init__()
+        self.convlstm = ConvLSTM(input_dim, hidden_dim, kernel_size, num_layers,
+                                 dropout=dropout, batch_first=batch_first, bias=bias, 
+                                 return_all_layers=return_all_layers)
+
+        self.conv    = torch.nn.Conv2d(hidden_dim, 1, kernel_size=1)
+        self.sigmoid = torch.nn.Sigmoid()
+        self.bn      = torch.nn.BatchNorm3d(input_dim)
+
+    def forward(self, X):
+        # Torch expects the channel axis to be second, but convlstm expects it
+        # to be third. So we have to permute the input, batchnorm it, and then
+        # permute it back.
+        # (N, T, C, H, W) -> (N, C, T, H, W)
+        X = X.permute(0, 2, 1, 3, 4)
+        X = self.bn(X)
+        # (N, C, T, H, W) -> (N, T, C, H, W)
+        X = X.permute(0, 2, 1, 3, 4)
+        
+        # Pass to convlstm
+        X = self.convlstm(X)[1][0][0]
+        # Convolve out the hidden dimensions
+        X = self.conv(X)
+        # Pass to sigmoid
+        X = self.sigmoid(X)
+        # Drop channel axis
+        return X.squeeze(1)
+        

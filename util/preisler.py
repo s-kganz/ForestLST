@@ -79,39 +79,8 @@ def make_preisler_dataframe() -> pd.DataFrame:
         client = Client(project="forest-lst")
         df = read_gcs_csv(client, "preisler_tfdata", "preisler-rectangular")
     except ImportError:
-        raise RuntimeError("GCS client library not found. You will need to load the Preisler dataset yourself"
-                           "and pass it to make_preisler_dataset() yourself.")
+        raise RuntimeError("GCS client library not found. You will need to load the Preisler dataframe yourself"
+                           "and pass it to make_preisler_dataset().")
         
     df_xr = df_to_xr(df, ["system:index", ".geo"], ["latitude", "longitude", "year"], sparse=False)
     return make_preisler_dataset(df_xr).to_dataframe().dropna()
-
-def make_windowed_data(arr: xr.DataArray, window: dict) -> xr.DataArray:
-    '''
-    Return indices in arr where a window of the provided size contains no
-    NAs.
-
-    Uses rolling(...).construct(...), which can be extremely memory intensive
-    depending on the size of the window.
-    '''
-    window_dims = {k: k+"_window" for k in window.keys()}
-    arr_roll = arr.rolling(**window).construct(**window_dims)
-    return np.where(arr_roll.notnull().all(dim=list(window_dims.values())))
-
-def theta_adjustment(p: np.ndarray, theta: float):
-    '''
-    Applies theta adjustment to the empirical class distribution in
-    the 1D array p. The k-th element of p is the proportion of a dataset
-    belonging to the k-th class. Theta takes on a value from [0, 1]. This
-    function returns a modified class distribution with:
-
-    q = theta * u + (1 - theta) * p
-
-    where u is a uniform distribution (i.e. np.ones(p.shape) / p.shape[0]).
-
-    When theta = 0, the empirical distribution is returned. When theta = 1,
-    the uniform distribution is returned. Modifying theta yields varying
-    levels of class balance.
-    '''
-    u = np.ones(p.shape) / p.shape[0]
-    q = theta * u + (1 - theta) * p
-    return q
