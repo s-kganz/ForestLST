@@ -4,7 +4,6 @@ from . import plot
 from . import preisler
 from . import const
 
-
 try:
     from . import training
     from . import convlstm
