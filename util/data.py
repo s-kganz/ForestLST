@@ -97,3 +97,21 @@ def make_windowed_data(arr: xr.DataArray, window: dict) -> xr.DataArray:
     arr_roll = arr.rolling(**window).construct(**window_dims)
     return np.where(arr_roll.notnull().all(dim=list(window_dims.values())))
 
+def theta_adjustment(p: np.ndarray, theta: float):
+    '''
+    Applies theta adjustment to the empirical class distribution in
+    the 1D array p. The k-th element of p is the proportion of a dataset
+    belonging to the k-th class. Theta takes on a value from [0, 1]. This
+    function returns a modified class distribution with:
+
+    q = theta * u + (1 - theta) * p
+
+    where u is a uniform distribution (i.e. np.ones(p.shape) / p.shape[0]).
+
+    When theta = 0, the empirical distribution is returned. When theta = 1,
+    the uniform distribution is returned. Modifying theta yields varying
+    levels of class balance.
+    '''
+    u = np.ones(p.shape) / p.shape[0]
+    q = theta * u + (1 - theta) * p
+    return q

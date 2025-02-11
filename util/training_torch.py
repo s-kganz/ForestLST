@@ -13,6 +13,11 @@ from tensorboard.backend.event_processing import event_accumulator
 import torchmetrics
 import warnings
 import os
+from imblearn.under_sampling import RandomUnderSampler
+from tqdm.autonotebook import tqdm
+
+from .data import theta_adjustment
+
 
 def parse_tensorboard(path: str, scalars: List[str] = None) -> Dict[str, pd.DataFrame]:
     """
@@ -52,7 +57,7 @@ class BaseTrainer:
         verbose: bool = True,
         timing_log: str = None,
         tensorboard_log: str = None,
-        model_log: str = None
+        model_log: str = None,
     ):
 
         self._verbose = verbose
@@ -113,14 +118,14 @@ class BaseTrainer:
             if os.path.exists(model_log):
                 warnings.warn(
                     f"Saved model already exists at {model_log}. "
-                     "This will be overwritten on first epoch!"
+                    "This will be overwritten on first epoch!"
                 )
-            
+
     def _log_scalar(self, key, value, step):
-        '''
+        """
         Adds a key/value pair to the tensorboard log (if set) and to the
         local history dict.
-        '''
+        """
         if key in self.history:
             self.history[key].append(value)
         else:
@@ -130,12 +135,12 @@ class BaseTrainer:
             self.writer.add_scalar(key, value, step)
 
     def _log_model(self):
-        '''
+        """
         Save the model state dict.
-        '''
+        """
         if self._model_log is not None:
             torch.save(self._model.state_dict(), self._model_log)
-    
+
     def _with_logging(self, f: Callable, event_name: str):
         def add_timing(*args, **kwargs):
             # Log start of event
@@ -181,10 +186,15 @@ class BaseTrainer:
     def get_validation_loss(self, epoch: int):
         valid_loss = 0
         with torch.no_grad():
-            batch = self.get_next_validation_batch()
-            n_batches = 0
-            while batch is not None:
-                n_batches += 1
+            n_batches = len(self._valid_loader)
+            self._reset_validation_iter()
+            for _ in tqdm(
+                range(n_batches),
+                disable=not self._verbose,
+                leave=False,
+                desc="Validation loss",
+            ):
+                batch = self.get_next_validation_batch()
                 X, y = batch
                 output = self._model(X)
 
@@ -195,8 +205,6 @@ class BaseTrainer:
                 for m in self._metrics:
                     m(output, y)
 
-                batch = self.get_next_validation_batch()
-
         # Append metrics to history and reset
         for m in self._metrics:
             self._log_scalar(str(m) + "/valid", m.compute().cpu().numpy(), epoch)
@@ -206,7 +214,7 @@ class BaseTrainer:
 
     def train_one_batch(self, batch):
         X, y = batch
-        
+
         self._optim.zero_grad()
         outputs = self._model(X)
         batch_loss = self._loss(outputs, y)
@@ -220,10 +228,15 @@ class BaseTrainer:
             m(outputs, y)
 
         return batch_loss.item()
-    
+
     def train_one_epoch(self, epoch: int):
         train_loss = 0
-        for i_batch in range(self._n_batches):
+        for i_batch in tqdm(
+            range(self._n_batches),
+            disable=not self._verbose,
+            leave=False,
+            desc="Training loss",
+        ):
             # If self._n_batches does not equal the length of the training
             # DataLoader (e.g. when the training dataset is huge) we might
             # exhaust the iterator in the middle of an epoch.
@@ -245,10 +258,7 @@ class BaseTrainer:
 
     def status_table(self):
         # Compiles all the most recent values in the history object
-        data = [
-            [key, self.history[key][-1]]
-            for key in self.history
-        ]
+        data = [[key, self.history[key][-1]] for key in self.history]
         data.sort(key=lambda x: x[0])
         table = pd.DataFrame(
             data=data,
@@ -258,15 +268,17 @@ class BaseTrainer:
 
     def update_lr(self, train_loss, valid_loss):
         self._scheduler.step()
-    
+
     def train(self):
         best_loss = float("Inf")
-        for i_epoch in range(self._n_epochs):
+        for i_epoch in tqdm(
+            range(self._n_epochs), disable=not self._verbose, leave=False, desc="Epoch"
+        ):
             train_loss = self.train_one_epoch(i_epoch)
             self._model.eval()
             valid_loss = self.get_validation_loss(i_epoch)
             self._model.train()
-            
+
             # Update history
             self._log_scalar("Loss/train", train_loss, i_epoch)
             self._log_scalar("Loss/valid", valid_loss, i_epoch)
@@ -284,6 +296,14 @@ class BaseTrainer:
                 print(f"Epoch {i_epoch+1} of {self._n_epochs}")
                 print(status)
                 print()
+
+
+class ReduceLRTrainer(BaseTrainer):
+    def __init__(self, *args, **kwargs):
+        super(ReduceLRTrainer, self).__init__(*args, **kwargs)
+
+    def update_lr(self, train_loss, valid_loss):
+        self._scheduler.step(valid_loss)
 
 
 # Based on
@@ -311,34 +331,42 @@ class WindowXarrayDataset(Dataset):
     of valid windows and then extracting those windows through __get__.
 
     Provide either a xr.DataArray or xr.Dataset to the data argument. If xr.DataArray,
-    valid windows are derived from the array. If xr.Dataset, mask_var must be set. This
-    variable will be used to determine valid windows. If your variables have different
-    amounts of missing data, either construct a separate mask variable or use
-    the variable with the fewest valid windows.
-    
-    window_size defines how windowing is performed. Each key of window_size should
+    valid windows are derived from that array. Otherwise, `mask` must be set. If a
+    string, that variable will be extracted from `data` and used to find windows. If a
+    xr.DataArray, valid windows are derived from the array and applied to `data`.
+
+    `window_size` defines how windowing is performed. Each key of window_size should
     be a coordinate in array. Values should be tuple[int, bool]. The first element
     defines the window size, while the center defines whether the window
     is centered (True) or right-padded (False).
+
+    Dimensions that are not keys in `window` are not sliced. For example, if you have
+    a satellite image with dimensions (x, y, band) and you window on x and y, then all
+    bands will be present in the resulting patches.
 
     Note that this class outputs slices of the underlying data, but does not
     separate them into X, y or convert them to tensors. That logic should be
     implemented in the collate_fn passed to the DataLoader.
     """
 
-    def __init__(self, data: xr.DataArray | xr.Dataset,
-                 window: dict[str, tuple[int, bool]],
-                 mask_var: str | None=None,):
-        
+    def __init__(
+        self,
+        data: xr.DataArray | xr.Dataset,
+        window: dict[str, tuple[int, bool]],
+        mask: xr.DataArray | str | None = None,
+    ):
+
         self.data = data
-        
+
         # Check input
         assert set(data.dims).issuperset(
             window.keys()
         ), "All keys in window must be coordinates in the array"
 
         if isinstance(data, xr.Dataset):
-            assert mask_var in [var for var in data.data_vars], "Mask variable must be present in the dataset"
+            assert mask in [
+                var for var in data.data_vars
+            ], "Mask variable must be present in the dataset"
 
         nonwindow_dims = set(data.dims) - window.keys()
 
@@ -350,7 +378,7 @@ class WindowXarrayDataset(Dataset):
             self.window_size[coord] = size
             self.is_centered[coord] = center
             if center:
-                self.offset[coord] = (-size // 2, size // 2 + 1)
+                self.offset[coord] = (-(size // 2), size // 2 + 1)
             else:
                 self.offset[coord] = (-size + 1, 1)
 
@@ -360,23 +388,24 @@ class WindowXarrayDataset(Dataset):
 
         # Determine indices where there are valid windows. Note that all
         # array dimensions, not just the window ones, are included here.
-        if isinstance(data, xr.DataArray):
+        if isinstance(data, xr.DataArray) and mask is None:
             array = data
-        elif isinstance(data, xr.Dataset):
-            array = data[mask_var]
+        elif isinstance(mask, xr.DataArray):
+            array = mask
+            assert set(mask.dims).issubset(
+                data.dims
+            ), "Mask cannot have dimensions not in data"
+        elif isinstance(data, xr.Dataset) and isinstance(mask, str):
+            array = data[mask]
         else:
-            raise ValueError(
-                "Input data must be either xr.Dataset" 
-                "or xr.DataArray"
-            )
-            
+            raise ValueError("Input data must be either xr.Dataset" "or xr.DataArray")
+
         self.valid_indices = self._get_valid_indices(array)
 
     def _get_valid_indices(self, array) -> dict[str, np.array]:
         """
         Determine which indices contain non-na windows in the array.
         """
-        # How to make sure the coordinate order is right?
         indices = np.where(
             array.rolling(dim=self.window_size, center=self.is_centered)
             .mean()
@@ -384,7 +413,12 @@ class WindowXarrayDataset(Dataset):
         )
         ret = dict()
         for i in range(len(array.dims)):
-            ret[array.dims[i]] = indices[i]
+            # np.nonzero will duplicate results over non-window dimensions
+            # (e.g. band). We only take dimensions that are in the window
+            # so that indexing will yield all values along the non-window
+            # dimensions.
+            if array.dims[i] in self.window_size:
+                ret[array.dims[i]] = indices[i]
         return ret
 
     def __len__(self) -> int:
@@ -401,6 +435,67 @@ class WindowXarrayDataset(Dataset):
         }
         # Extract
         return self.data.isel(**slicers)
+
+
+class ResampleXarrayDataset(WindowXarrayDataset):
+    """
+    This class overwrites `WindowXarrayDataset._get_valid_indices` to
+    resample the response variable. This adds a new parameter `theta` that
+    controls how balanced the resulting dataset is. See `util.data.theta_adjustment`
+    for more details. Data balancing only occurs by undersampling majority quantiles.
+
+    It is assumed that the mask array in this dataset is the response variable. It is
+    therefore recommended that you set `mask` to your response variable
+    if you have other covariates in `data`.
+    """
+
+    def __init__(self, *args, theta=0, n_bins=10, **kwargs):
+        self.theta = theta
+        self.n_bins = n_bins
+        super(ResampleXarrayDataset, self).__init__(*args, **kwargs)
+
+    def _get_valid_indices(self, array):
+        # Use the max of the window to resample on. This adds more observations
+        # to higher-value bins than mean.
+        window_mean = array.rolling(
+            dim=self.window_size, center=self.is_centered
+        ).mean()
+
+        # Isolate non-na samples
+        non_na_inds = np.where(~np.isnan(window_mean))
+        window_mean_nona = window_mean.values[*non_na_inds]
+
+        # Bin data
+        # Need to subtract off an epsilon from the leftmost bin edge because
+        # of semantics with digitize.
+        # https://stackoverflow.com/questions/65740900/
+        # numpy-digitize-gives-more-bins-than-expected-when-using-bin-edges-from-numpy-h
+        bins = np.histogram_bin_edges(window_mean_nona, bins=self.n_bins)
+        window_mean_bin = np.digitize(window_mean_nona, bins[1:])
+        bin_count = np.bincount(window_mean_bin)
+
+        # Calculate empirical and adjusted bin distribution
+        p = bin_count / window_mean_bin.shape[0]
+        q = theta_adjustment(p, self.theta)
+
+        # Calculate how many of each sample we will be pulling, assuming
+        # that the least numerous class is fully sampled
+        n_tot = (np.min(bin_count) / q[np.argmin(bin_count)]).astype(np.int32)
+        n_per_bin = q * n_tot
+        sampling_strategy = {i: int(n_per_bin[i]) for i in range(n_per_bin.shape[0])}
+
+        # Resample and return
+        ind_stack = np.stack(non_na_inds).T
+        resample_ind, _ = RandomUnderSampler(
+            sampling_strategy=sampling_strategy
+        ).fit_resample(ind_stack, window_mean_bin)
+
+        ret = dict()
+        for i in range(len(array.dims)):
+            if array.dims[i] in self.window_size:
+                ret[array.dims[i]] = resample_ind[:, i]
+        return ret
+
 
 class DamageConv3D(torch.nn.Module):
     """
