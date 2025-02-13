@@ -178,7 +178,7 @@ class ResampleXarrayDataset(WindowXarrayDataset):
         # to higher-value bins than mean.
         window_mean = array.rolling(
             dim=self.window_size, center=self.is_centered
-        ).mean()
+        ).max()
 
         # Isolate non-na samples
         non_na_inds = np.where(~np.isnan(window_mean))
