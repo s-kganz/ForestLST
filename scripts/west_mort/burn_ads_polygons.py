@@ -25,7 +25,7 @@ DAMAGE_DIR    = os.path.join(OUTPUT_DIR, "damage_rasters")
 FAM_DIR       = os.path.join(OUTPUT_DIR, "fam_rasters")
 
 # Processing settings
-TCC_THRESHOLD = 30 # pixel percent cover to count as forested
+TCC_THRESHOLD = 10 # pixel percent cover to count as forested
 FINE_RES      = 100 # m, initial rasterization resolution
 COARSE_RES    = 4000 # m, final rasterization resolution
 OUT_SREF      = "EPSG:3857"
@@ -116,34 +116,27 @@ for y in years:
         print(f"Survey or damage polygons are empty for year {y}! "
               f"Skipping this year.")
         continue
-    
-    fine_burn = gdal.Rasterize(
-        f"temp_fine_burn_{y}.tif",
-        survey_ds,
+
+    # Initial fine burn
+    gdal.Rasterize(
+        f"temp_damage_burn_fine_{y}.tif",
+        damage_ds,
         xRes=FINE_RES,
         yRes=FINE_RES,
-        noData=-1,
         allTouched=True,
         where=f"SURVEY_YEAR={y}",
-        burnValues=[0],
+        burnValues=[100],
+        initValues=[0],
         outputBounds=[xmin, ymin, xmax, ymax],
         outputSRS=OUT_SREF,
         creationOptions=["BIGTIFF=YES", "COMPRESS=DEFLATE"],
         outputType=gdal.GDT_Int8,
     )
 
-    fine_burn = gdal.Rasterize(
-        fine_burn,
-        damage_ds,
-        allTouched=True,
-        where=f"SURVEY_YEAR={y}",
-        attribute="SEVERITY"
-    )
-
-    # Reduce resolution
+    # Coarsen
     gdal.Warp(
-        os.path.join(DAMAGE_DIR, f"{y}.tif"),
-        f"temp_fine_burn_{y}.tif",
+        f"temp_damage_burn_coarse_{y}.tif",
+        f"temp_damage_burn_fine_{y}.tif",
         format="GTiff",
         xRes=COARSE_RES,
         yRes=COARSE_RES,
@@ -152,6 +145,51 @@ for y in years:
         outputType=gdal.GDT_Int8,
         resampleAlg=gdal.GRA_Average,
     )
+
+    gdal.Rasterize(
+        f"temp_survey_burn_{y}.tif",
+        survey_ds,
+        xRes=COARSE_RES,
+        yRes=COARSE_RES,
+        allTouched=True,
+        where=f"SURVEY_YEAR={y}",
+        burnValues=[1],
+        initValues=[0],
+        outputBounds=[xmin, ymin, xmax, ymax],
+        outputSRS=OUT_SREF,
+        creationOptions=["BIGTIFF=YES", "COMPRESS=DEFLATE"],
+        outputType=gdal.GDT_Int8,
+    )
+
+    # If mortality was > 0, write the value. If survey was > 0, write zero. Otherwise, write nodata.
+    gdal_calc.Calc(
+        calc="np.where(a > 0, a, np.where(b > 0, 0, -1))",
+        a=f"temp_damage_burn_coarse_{y}.tif",
+        b=f"temp_survey_burn_{y}.tif",
+        user_namespace={"np": np},
+        outfile=f"temp_damage_burn_coarse_survey_mask{y}.tif",
+        type="Int8",
+        overwrite=True,
+        creation_options=["BIGTIFF=YES", "COMPRESS=DEFLATE"]
+    )
+
+    # Mask out nonforest pixels
+    damage = gdal_calc.Calc(
+        calc="np.where(a > 0, b, -1)",
+        a=os.path.join(OUTPUT_DIR, "forest_mask.tif"),
+        b=f"temp_damage_burn_coarse_survey_mask{y}.tif",
+        user_namespace={"np": np},
+        outfile=os.path.join(DAMAGE_DIR, f"{y}.tif"),
+        type="Int8",
+        overwrite=True,
+        creation_options=["BIGTIFF=YES", "COMPRESS=DEFLATE"]
+    )
+
+    # NoData isn't properly set so we have to do that ourselves
+    rb = damage.GetRasterBand(1)
+    rb.SetNoDataValue(-1)
+    
+    damage, rb = None, None
 
     # Calculate FAM
     gdal_calc.Calc(
@@ -166,5 +204,8 @@ for y in years:
         creation_options=["BIGTIFF=YES", "COMPRESS=DEFLATE"]
     )
     
-    # Delete the temporary raster
-    os.remove(f"temp_fine_burn_{y}.tif")
+    # Delete the temporary rasters
+    os.remove(f"temp_damage_burn_fine_{y}.tif")
+    os.remove(f"temp_damage_burn_coarse_{y}.tif")
+    os.remove(f"temp_survey_burn_{y}.tif")
+    os.remove(f"temp_damage_burn_coarse_survey_mask{y}.tif")
