@@ -47,7 +47,7 @@ def _do_daymet_function(
         earthaccess.open(granules_filter), 
         coords="minimal",
         compat="override",
-        chunks=dict(time=12, x="auto", y="auto"),
+        #chunks=dict(time=12, x="auto", y="auto"),
         **xr_args
     )
 
