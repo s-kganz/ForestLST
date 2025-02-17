@@ -55,7 +55,7 @@ if __name__ == "__main__":
 
     treecover = xr.open_dataset("data_working/forest_cover.tif")\
         .squeeze(drop=True)\
-        .drop_vars(["spatial_ref", "band"])\
+        .drop_vars(["spatial_ref"])\
         .rename(band_data="treecover")\
         .expand_dims(time=damage.time.shape[0])\
         .assign_coords(time=damage.time)\
