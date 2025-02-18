@@ -5,8 +5,9 @@ import xbatcher
 from imblearn.under_sampling import RandomUnderSampler
 from typing import Callable
 
+
 def theta_adjustment(p: np.ndarray, theta: float):
-    '''
+    """
     Applies theta adjustment to the empirical class distribution in
     the 1D array p. The k-th element of p is the proportion of a dataset
     belonging to the k-th class. Theta takes on a value from [0, 1]. This
@@ -19,7 +20,7 @@ def theta_adjustment(p: np.ndarray, theta: float):
     When theta = 0, the empirical distribution is returned. When theta = 1,
     the uniform distribution is returned. Modifying theta yields varying
     levels of class balance.
-    '''
+    """
     u = np.ones(p.shape) / p.shape[0]
     q = theta * u + (1 - theta) * p
     return q
@@ -119,26 +120,23 @@ class WindowXarrayDataset(Dataset):
         else:
             raise ValueError("Input data must be either xr.Dataset" "or xr.DataArray")
 
-        self.valid_indices = self._get_valid_indices(array)
+        accepted_indices = self._get_valid_indices(array)
+        self.valid_indices = dict()
+        for i in range(len(array.dims)):
+            if array.dims[i] in self.window_size:
+                self.valid_indices[array.dims[i]] = accepted_indices[:, i]
 
-    def _get_valid_indices(self, array) -> dict[str, np.array]:
+    def _get_valid_indices(self, array) -> np.array:
         """
         Determine which indices contain non-na windows in the array.
         """
-        indices = np.where(
-            array.rolling(dim=self.window_size, center=self.is_centered)
-            .mean()
-            .notnull()
-        )
-        ret = dict()
-        for i in range(len(array.dims)):
-            # np.nonzero will duplicate results over non-window dimensions
-            # (e.g. band). We only take dimensions that are in the window
-            # so that indexing will yield all values along the non-window
-            # dimensions.
-            if array.dims[i] in self.window_size:
-                ret[array.dims[i]] = indices[i]
-        return ret
+        return np.stack(
+            np.where(
+                array.rolling(dim=self.window_size, center=self.is_centered)
+                .mean()
+                .notnull()
+            )
+        ).T
 
     def __len__(self) -> int:
         return next(iter(self.valid_indices.values())).shape[0]
@@ -176,9 +174,7 @@ class ResampleXarrayDataset(WindowXarrayDataset):
     def _get_valid_indices(self, array):
         # Use the max of the window to resample on. This adds more observations
         # to higher-value bins than mean.
-        window_mean = array.rolling(
-            dim=self.window_size, center=self.is_centered
-        ).max()
+        window_mean = array.rolling(dim=self.window_size, center=self.is_centered).max()
 
         # Isolate non-na samples
         non_na_inds = np.where(~np.isnan(window_mean))
@@ -209,8 +205,30 @@ class ResampleXarrayDataset(WindowXarrayDataset):
             sampling_strategy=sampling_strategy
         ).fit_resample(ind_stack, window_mean_bin)
 
-        ret = dict()
-        for i in range(len(array.dims)):
-            if array.dims[i] in self.window_size:
-                ret[array.dims[i]] = resample_ind[:, i]
-        return ret
+        return resample_ind
+
+
+class InferenceXarrayDataset(WindowXarrayDataset):
+    """
+    This Dataset subclass is similar to WindowXarrayDataset, but
+    allows a user-defined proportion of NA values in each patch.
+    """
+
+    def __init__(self, *args, na_thresh=0.5, **kwargs):
+        self.na_thresh = na_thresh
+        super(InferenceXarrayDataset, self).__init__(*args, **kwargs)
+
+    def _get_valid_indices(self, array) -> np.array:
+        """
+        Determine which indices contain non-na windows in the array.
+        """
+        return np.stack(
+            np.where(
+                (
+                    array.notnull()
+                    .rolling(dim=self.window_size, center=self.is_centered)
+                    .mean()
+                )
+                > self.na_thresh
+            )
+        ).T
