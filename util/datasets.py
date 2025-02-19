@@ -74,8 +74,9 @@ class WindowXarrayDataset(Dataset):
         data: xr.DataArray | xr.Dataset,
         window: dict[str, tuple[int, bool]],
         mask: xr.DataArray | str | None = None,
+        na_thresh: float = 1.0
     ):
-
+        self.na_thresh = na_thresh
         self.data = data
 
         # Check input
@@ -132,9 +133,12 @@ class WindowXarrayDataset(Dataset):
         """
         return np.stack(
             np.where(
-                array.rolling(dim=self.window_size, center=self.is_centered)
-                .mean()
-                .notnull()
+                (
+                    array.notnull()
+                    .rolling(dim=self.window_size, center=self.is_centered)
+                    .mean()
+                )
+                >= self.na_thresh
             )
         ).T
 
@@ -206,29 +210,4 @@ class ResampleXarrayDataset(WindowXarrayDataset):
         ).fit_resample(ind_stack, window_mean_bin)
 
         return resample_ind
-
-
-class InferenceXarrayDataset(WindowXarrayDataset):
-    """
-    This Dataset subclass is similar to WindowXarrayDataset, but
-    allows a user-defined proportion of NA values in each patch.
-    """
-
-    def __init__(self, *args, na_thresh=0.5, **kwargs):
-        self.na_thresh = na_thresh
-        super(InferenceXarrayDataset, self).__init__(*args, **kwargs)
-
-    def _get_valid_indices(self, array) -> np.array:
-        """
-        Determine which indices contain non-na windows in the array.
-        """
-        return np.stack(
-            np.where(
-                (
-                    array.notnull()
-                    .rolling(dim=self.window_size, center=self.is_centered)
-                    .mean()
-                )
-                > self.na_thresh
-            )
-        ).T
+    
