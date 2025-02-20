@@ -17,7 +17,7 @@ input_gdb = "data_in/nidrm/L48_BA.gdb"
 input_totals_gdb = "data_in/nidrm/L48_Totals.gdb"
 output_dir = "data_working/genus_basal_area/"
 forest_mask = "data_working/forest_mask.tif"
-template_raster = "data_working/damage_rasters/2000.tif"
+template_raster = "data_working/damage_rasters/2010.tif"
 template_srs = "EPSG:3857"
 
 # calculate output extent

@@ -20,7 +20,12 @@ rule combine:
         os.path.join(DATA_WORKING, "mtbs_rasters/2010.tif"),
         os.path.join(DATA_WORKING, "summer_vod.nc"),
         expand(os.path.join(DATA_WORKING, "daymet", "{y}.nc"), y=YEARS),
-        os.path.join(DATA_WORKING, "damage_rasters/2010.tif")
+        os.path.join(DATA_WORKING, "damage_rasters/2010.tif"),
+        os.path.join(DATA_WORKING, "genus_basal_area/abies.tif"),
+        os.path.join(DATA_WORKING, "genus_basal_area/picea.tif"),
+        os.path.join(DATA_WORKING, "genus_basal_area/populus.tif"),
+        os.path.join(DATA_WORKING, "genus_basal_area/pseudotsuga.tif"),
+        os.path.join(DATA_WORKING, "genus_basal_area/tsuga.tif")
     output:
         os.path.join(DATA_WORKING, "camort.nc"),
         os.path.join(DATA_WORKING, "westmort.nc")
@@ -111,4 +116,22 @@ rule daymet:
         os.path.join(DATA_WORKING, "daymet", "{y}.nc")
     shell:
         "python scripts/west_mort/download_daymet.py {wildcards.y}"
-        
+
+rule download_nidrm:
+    input:
+    output:
+        os.path.join(DATA_IN, "nidrm/L48_BA.gdb/timestamps"),
+        os.path.join(DATA_IN, "nidrm/L48_Totals.gdb/timestamps")
+    shell:
+        "rm -r data_in/nidrm/L48_BA.gdb data_in/nidrm/L48_Totals.gdb && ./scripts/west_mort/download_nidrm.sh"
+
+rule coarsen_nidrm:
+    input:
+        os.path.join(DATA_IN, "nidrm/L48_BA.gdb/timestamps"),
+        os.path.join(DATA_IN, "nidrm/L48_Totals.gdb/timestamps")
+    output:
+        os.path.join(DATA_WORKING, "genus_basal_area/abies.tif"),
+        os.path.join(DATA_WORKING, "genus_basal_area/picea.tif"),
+        os.path.join(DATA_WORKING, "genus_basal_area/populus.tif"),
+        os.path.join(DATA_WORKING, "genus_basal_area/pseudotsuga.tif"),
+        os.path.join(DATA_WORKING, "genus_basal_area/tsuga.tif")

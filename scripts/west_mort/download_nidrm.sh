@@ -1,6 +1,6 @@
 #!/bin/bash
 
-OUTPUT_DIR=data_in
+OUTPUT_DIR=$1
 
 mkdir -p $OUTPUT_DIR
 mkdir -p $OUTPUT_DIR/ads

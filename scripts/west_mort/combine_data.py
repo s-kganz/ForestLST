@@ -37,6 +37,10 @@ def preprocess_fire(ds):
         .rename(band_data="fire")\
         .assign_coords(time=year)
 
+def preprocess_ba(ds):
+    genus = os.path.basename(ds.encoding["source"]).replace(".tif", "")
+    return ds.squeeze(drop=True).rename(band_data=genus)
+
 if __name__ == "__main__":
     # Read in all the data
     damage = xr.open_mfdataset(
@@ -82,9 +86,17 @@ if __name__ == "__main__":
         .chunk(**CHUNK_SCHEMA)
     vod = vod.assign_coords(time=vod.time.dt.year)
 
+    genus_ba = xr.open_mfdataset(
+        "data_working/genus_basal_area/*.tif",
+        preprocess=preprocess_ba
+    )\
+        .expand_dims(time=damage.time.shape[0])\
+        .assign_coords(time=damage.time)\
+        .chunk(**CHUNK_SCHEMA)
+
     # Merge it
     all_data = xr.combine_by_coords(
-        [vod, terrain, fire, daymet, damage, treecover],
+        [vod, terrain, fire, daymet, damage, treecover, genus_ba],
         coords="minimal",
         compat="override",
         combine_attrs="drop"
@@ -94,11 +106,11 @@ if __name__ == "__main__":
     int_encoding  = {"dtype": "int16", "_FillValue": -9999}
     byte_encoding = {"dtype": "int8", "_FillValue": -128}
     encoding={
-        #"abies": int_encoding,
-        #"picea": int_encoding,
-        #"populus": int_encoding,
-        #"pseudotsuga": int_encoding,
-        #"tsuga": int_encoding,
+        "abies": int_encoding,
+        "picea": int_encoding,
+        "populus": int_encoding,
+        "pseudotsuga": int_encoding,
+        "tsuga": int_encoding,
         "vod": int_encoding,
         "elev": int_encoding,
         "slope": int_encoding,
