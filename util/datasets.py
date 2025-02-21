@@ -74,9 +74,9 @@ class WindowXarrayDataset(Dataset):
         data: xr.DataArray | xr.Dataset,
         window: dict[str, tuple[int, bool]],
         mask: xr.DataArray | str | None = None,
-        na_thresh: float = 1.0
+        downsample_step: int = 1,
     ):
-        self.na_thresh = na_thresh
+        self.downsample_step = downsample_step
         self.data = data
 
         # Check input
@@ -129,18 +129,16 @@ class WindowXarrayDataset(Dataset):
 
     def _get_valid_indices(self, array) -> np.array:
         """
-        Determine which indices contain non-na windows in the array.
+        Determine which indices contain non-na windows in the array. Overloads
+        of this function must return a 2-D numpy array of shape (n_samples, n_axes).
         """
         return np.stack(
             np.where(
-                (
-                    array.notnull()
-                    .rolling(dim=self.window_size, center=self.is_centered)
-                    .mean()
+                ~np.isnan(
+                    array.rolling(dim=self.window_size, center=self.is_centered).mean()
                 )
-                >= self.na_thresh
             )
-        ).T
+        ).T[:: self.downsample_step, :]
 
     def __len__(self) -> int:
         return next(iter(self.valid_indices.values())).shape[0]
@@ -170,44 +168,30 @@ class ResampleXarrayDataset(WindowXarrayDataset):
     if you have other covariates in `data`.
     """
 
-    def __init__(self, *args, theta=0, n_bins=10, **kwargs):
-        self.theta = theta
-        self.n_bins = n_bins
+    def __init__(self, *args, cutoff=3, ratio=1, **kwargs):
+        self.cutoff = cutoff
+        self.ratio = ratio
         super(ResampleXarrayDataset, self).__init__(*args, **kwargs)
 
     def _get_valid_indices(self, array):
-        # Use the max of the window to resample on. This adds more observations
-        # to higher-value bins than mean.
-        window_mean = array.rolling(dim=self.window_size, center=self.is_centered).max()
+        # Resample on the window mean
+        window_mean = array.rolling(
+            dim=self.window_size, center=self.is_centered
+        ).mean()
 
-        # Isolate non-na samples
-        non_na_inds = np.where(~np.isnan(window_mean))
-        window_mean_nona = window_mean.values[*non_na_inds]
+        positive_inds = np.where(window_mean >= self.cutoff)
+        negative_inds = np.where(window_mean < self.cutoff)
 
-        # Bin data
-        # Need to subtract off an epsilon from the leftmost bin edge because
-        # of semantics with digitize.
-        # https://stackoverflow.com/questions/65740900/
-        # numpy-digitize-gives-more-bins-than-expected-when-using-bin-edges-from-numpy-h
-        bins = np.histogram_bin_edges(window_mean_nona, bins=self.n_bins)
-        window_mean_bin = np.digitize(window_mean_nona, bins[1:])
-        bin_count = np.bincount(window_mean_bin)
+        # Only pull some of the samples from the negatives
+        n_negatives = int(positive_inds[0].shape[0] * self.ratio)
+        assert n_negatives <= negative_inds[0].shape[0], (
+            f"Cannot sample {n_negatives} samples "
+            f"from {negative_inds[0].shape[0]} negative samples!"
+        )
 
-        # Calculate empirical and adjusted bin distribution
-        p = bin_count / window_mean_bin.shape[0]
-        q = theta_adjustment(p, self.theta)
+        inds = np.random.choice(negative_inds[0].shape[0], n_negatives, replace=False)
+        negative_inds_sample = tuple(a[inds] for a in negative_inds)
 
-        # Calculate how many of each sample we will be pulling, assuming
-        # that the least numerous class is fully sampled
-        n_tot = (np.min(bin_count) / q[np.argmin(bin_count)]).astype(np.int32)
-        n_per_bin = q * n_tot
-        sampling_strategy = {i: int(n_per_bin[i]) for i in range(n_per_bin.shape[0])}
-
-        # Resample and return
-        ind_stack = np.stack(non_na_inds).T
-        resample_ind, _ = RandomUnderSampler(
-            sampling_strategy=sampling_strategy
-        ).fit_resample(ind_stack, window_mean_bin)
-
-        return resample_ind
-    
+        return np.concat(
+            (np.stack(positive_inds), np.stack(negative_inds_sample)), axis=1
+        ).T
