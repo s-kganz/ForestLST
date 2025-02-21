@@ -290,13 +290,35 @@ class BaseTrainer:
                 print()
 
 
-class ReduceLRTrainer(BaseTrainer):
-    def __init__(self, *args, **kwargs):
-        super(ReduceLRTrainer, self).__init__(*args, **kwargs)
-
+class ReduceLRMixin:
     def update_lr(self, train_loss, valid_loss):
         self._scheduler.step(valid_loss)
 
+class MaskedLossMixin:
+    def train_one_batch(self, batch):
+        # y possibly contains NAs. Replace these with
+        # zeros and save their positions.
+        X, y = batch
+        mask = torch.isnan(y)
+        y = torch.nan_to_num(y)
 
+        # calculate loss
+        self._optim.zero_grad()
+        outputs = self._model(X)
+        batch_loss = self._loss(outputs, y)
+
+        # discard losses with na
+        batch_loss = torch.where(mask, torch.nan, batch_loss)
+        batch_loss_val = batch_loss.nanmean()
+
+        # Update weights
+        batch_loss_val.backward()
+        self._optim.step()
+
+        # Update metrics
+        for m in self._metrics:
+            m(outputs, y)
+
+        return batch_loss_val.item()
 
 
