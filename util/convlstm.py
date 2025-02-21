@@ -219,14 +219,6 @@ class DamageConvLSTM(torch.nn.Module):
         self.bn      = torch.nn.BatchNorm3d(input_dim)
 
     def forward(self, X):
-        # Replace missing data with the channel mean
-        mask = torch.isnan(X)
-        X = torch.nan_to_num(X)
-        # Add two singleton dims to the running mean so that we have the
-        # shape (C, 1, 1) which broadcasts to the input (N, T, C, H, W)
-        to_add = mask * self.bn.running_mean.unsqueeze(-1).unsqueeze(-1)
-        X += to_add
-
         # Do batchnorming
         # Torch expects the channel axis to be second, but convlstm expects it
         # to be third. So we have to permute the input, batchnorm it, and then
