@@ -41,6 +41,24 @@ def get_final_metrics(path: str, scalars: List[str] | None = None) -> Dict[str, 
 
     return {k: float(metrics[k]["value"].iloc[-1]) for k in metrics}
 
+def get_binary_metrics() -> list[torchmetrics.Metric]:
+    '''
+    Instantiate commonly-used metrics for binary classification tasks.
+    '''
+    return [
+        torchmetrics.BinaryAUROC(),
+        torchmetrics.BinaryAccuracy(),
+        torchmetrics.BinaryPrecision(),
+        torchmetrics.BinaryRecall()
+    ]
+
+def get_regr_metrics() -> list[torchmetrics.Metric]:
+    return [
+        torchmetrics.NormalizedRootMeanSquaredError(),
+        torchmetrics.R2Score(),
+        torchmetrics.MeanAbsoluteError()
+    ]
+
 class BaseTrainer:
     """
     Class implementing a Torch training loop.
@@ -206,7 +224,7 @@ class BaseTrainer:
 
                 # Update metrics
                 for m in self._metrics:
-                    m(output, y)
+                    m(output.view(-1), y.view(-1))
 
         # Append metrics to history and reset
         for m in self._metrics:
@@ -228,7 +246,7 @@ class BaseTrainer:
 
         # Update metrics
         for m in self._metrics:
-            m(outputs, y)
+            m(outputs.view(-1), y.view(-1))
 
         return batch_loss.item()
 
