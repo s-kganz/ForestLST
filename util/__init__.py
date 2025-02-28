@@ -2,6 +2,7 @@ from . import daymet
 from . import plot
 from . import preisler
 from . import const
+from . import manip
 
 try:
     from . import training
