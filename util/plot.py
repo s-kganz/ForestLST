@@ -144,3 +144,53 @@ def plot(fname):
                 bbox=props,
             )
             break
+
+def plot_learning_curve(history_path: str, ax: plt.Axes | None, **kwargs) -> list | None:
+    try:
+        from .training import parse_tensorboard
+    except ImportError:
+        raise RuntimeError("Module util.training must be loaded to use plot_learning_curve()")
+
+    losses = parse_tensorboard(history_path, ["Loss/train", "Loss/valid"])
+    epochs = np.arange(1, len(losses["Loss/train"]["value"])+1)
+
+    if ax is not None:
+        return [
+            plt.plot(epochs, losses["Loss/train"]["value"], label="Train", **kwargs),
+            plt.plot(epochs, losses["Loss/valid"]["value"], label="Valid", **kwargs)
+        ]
+    else:
+        ax.plot(epochs, losses["Loss/train"]["value"], label="Train", **kwargs)
+        ax.plot(epochs, losses["Loss/valid"]["value"], label="Valid", **kwargs)
+
+def plot_all_scalars_in_run(history, subplots_kw=dict()):
+    try:
+        from util.training import parse_tensorboard
+    except ImportError:
+        raise RuntimeError("Module util.training must be available to use plot_all_scalars_in_run")
+    
+    all_scalars = parse_tensorboard(history)
+    keys = set(k.split("/")[0] for k in all_scalars.keys())
+    fig, ax = plt.subplots(len(keys) // 3, 3, sharex=True, sharey=False, **subplots_kw)
+    
+    for (k, a) in zip(keys, ax.flatten()):
+        a.set_title(k)
+        for kk in all_scalars:
+            if kk.startswith(k):
+                label = kk.split("/")[-1] if "/" in kk else ""
+                a.plot(all_scalars[kk]["step"], all_scalars[kk]["value"], label=label)
+    
+    lines, labels = [], []
+    for ax in fig.axes:
+        ax_lines, ax_labels = ax.get_legend_handles_labels()
+        for li, la in zip(ax_lines, ax_labels):
+            if la not in labels:
+                lines.append(li)
+                labels.append(la)
+    
+    fig.supxlabel("Epoch")
+    fig.legend(lines, labels)
+    fig.tight_layout()
+    
+    return fig, ax
+    

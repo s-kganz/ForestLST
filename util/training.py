@@ -11,6 +11,13 @@ import warnings
 import os
 from tqdm.autonotebook import tqdm
 
+def count_trainable_parameters(model: torch.nn.Module) -> int:
+    """
+    Returns number of trainable parameters in torch model. This
+    does not account for shared parameters.
+    """
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+    
 def parse_tensorboard(path: str, scalars: List[str] = None) -> Dict[str, pd.DataFrame]:
     """
     returns a dictionary of pandas dataframes for each requested scalar
@@ -29,6 +36,10 @@ def parse_tensorboard(path: str, scalars: List[str] = None) -> Dict[str, pd.Data
         scalars = [s for s in ea.Tags()["scalars"]]
     return {k: pd.DataFrame(ea.Scalars(k)) for k in scalars}
 
+def get_final_metrics(path: str, scalars: List[str] | None = None) -> Dict[str, float]:
+    metrics = parse_tensorboard(path, scalars)
+
+    return {k: float(metrics[k]["value"].iloc[-1]) for k in metrics}
 
 class BaseTrainer:
     """
