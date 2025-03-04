@@ -9,6 +9,7 @@ from tensorboard.backend.event_processing import event_accumulator
 import torchmetrics
 import warnings
 import os
+import shutil
 from tqdm.autonotebook import tqdm
 
 def count_trainable_parameters(model: torch.nn.Module) -> int:
@@ -58,6 +59,18 @@ def get_regr_metrics() -> list[torchmetrics.Metric]:
         torchmetrics.R2Score(),
         torchmetrics.MeanAbsoluteError()
     ]
+
+def remove_log(logdir):
+    '''
+    This is a safer verison of using rm to remove a log directory. It is
+    assumed that the log contains a history directory and a model.pth
+    file. This function only removes those things and then clears
+    the directory. Anything else in the directory is ignored.
+    '''
+    assert os.path.exists(logdir)
+    shutil.rmtree(os.path.join(logdir, "history"))
+    os.remove(os.path.join(logdir, "model.pth"))
+    os.rmdir(logdir)
 
 class BaseTrainer:
     """
@@ -287,9 +300,20 @@ class BaseTrainer:
         )
         return table
 
-    def update_lr(self, train_loss, valid_loss):
+    def update_lr(self, train_loss: float, valid_loss: float) -> None:
+        '''
+        Update scheduler state. Mixins can overwrite this function
+        to implement more complex LR scheduling.
+        '''
         self._scheduler.step()
 
+    def stop_condition(self, train_loss: float, valid_loss: float, i_epoch: int) -> bool:
+        '''
+        Stop training if a stop condition is met. Mixins can overwrite
+        this function to implement early stopping behavior.
+        '''
+        return False
+    
     def train(self):
         best_loss = float("Inf")
         for i_epoch in tqdm(
@@ -312,18 +336,29 @@ class BaseTrainer:
                 best_loss = valid_loss
                 self._log_model()
 
+            # Maybe print current results
             if self._verbose:
                 status = self.status_table()
                 print(f"Epoch {i_epoch+1} of {self._n_epochs}")
                 print(status)
                 print()
 
+            # Maybe quit early
+            if self.stop_condition(train_loss, valid_loss, i_epoch):
+                break
 
-class ReduceLRMixin:
+
+class ReduceLRMixin(object):
+    def __init__(self, *args, **kwargs):
+        super(ReduceLRMixin, self).__init__(*args, **kwargs)
+    
     def update_lr(self, train_loss, valid_loss):
         self._scheduler.step(valid_loss)
 
-class MaskedLossMixin:
+class MaskedLossMixin(object):
+    def __init__(self, *args, **kwargs):
+        super(MaskedLossMixin, self).__init__(*args, **kwargs)
+        
     def train_one_batch(self, batch):
         # y possibly contains NAs. Replace these with
         # zeros and save their positions.
@@ -350,4 +385,38 @@ class MaskedLossMixin:
 
         return batch_loss_val.item()
 
+class EarlyStopMixin:
+    '''
+    Stops training early if the mean validation loss of the last n epochs
+    does not improve compared to the n before it.
+    '''
+    def __init__(self, *args, stop_patience=5, rel_improve=0.01, **kwargs):
+        self.stop_patience = stop_patience
+        self.rel_improve = rel_improve
+        self.running_loss = None
+        self.best_epoch = None
+        super(EarlyStopMixin, self).__init__(*args, **kwargs)
 
+    def stop_condition(self, train_loss, valid_loss, i_epoch):
+        # If this is the first run just continue
+        if self.running_loss is None:
+            self.running_loss = valid_loss
+            self.best_epoch = i_epoch
+            return False
+
+        # Combine this result with most recent loss, update counter
+        # if there is improvement
+        new_loss = (self.running_loss + valid_loss) / 2
+        if 1 - (new_loss / self.running_loss) > self.rel_improve:
+            self.best_epoch = i_epoch
+        self.running_loss = new_loss
+
+        # If we have waited too long for an improvement, stop training
+        if i_epoch - self.best_epoch > self.stop_patience:
+            return True
+        else:
+            return False
+        
+        
+        
+        
