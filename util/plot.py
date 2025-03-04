@@ -171,7 +171,7 @@ def plot_all_scalars_in_run(history, subplots_kw=dict()):
     
     all_scalars = parse_tensorboard(history)
     keys = set(k.split("/")[0] for k in all_scalars.keys())
-    fig, ax = plt.subplots(len(keys) // 3, 3, sharex=True, sharey=False, **subplots_kw)
+    fig, ax = plt.subplots(int(np.ceil(len(keys) / 3)), 3, sharex=True, sharey=False, **subplots_kw)
     
     for (k, a) in zip(keys, ax.flatten()):
         a.set_title(k)
@@ -182,11 +182,14 @@ def plot_all_scalars_in_run(history, subplots_kw=dict()):
     
     lines, labels = [], []
     for ax in fig.axes:
-        ax_lines, ax_labels = ax.get_legend_handles_labels()
-        for li, la in zip(ax_lines, ax_labels):
-            if la not in labels:
-                lines.append(li)
-                labels.append(la)
+        if ax.has_data():
+            ax_lines, ax_labels = ax.get_legend_handles_labels()
+            for li, la in zip(ax_lines, ax_labels):
+                if la not in labels:
+                    lines.append(li)
+                    labels.append(la)
+        else:
+            ax.axis("off")
     
     fig.supxlabel("Epoch")
     fig.legend(lines, labels)
