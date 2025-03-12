@@ -24,6 +24,7 @@ if 'snakemake' in globals():
     from snakemake.script import snakemake
     TEMPLATE = xr.open_dataset(os.path.join(snakemake.config["data_working"], "template.tif"))
     OUTPUT = os.path.join(snakemake.config["data_working"], "terrain.nc")
+    RESOLUTION = int(snakemake.config["resolution"])
 else:
     raise RuntimeError("Not running in snakemake pipeline!")
 
@@ -43,7 +44,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tempdir:
     merged = "data_working/elev_merged.tif"
     # Have to coarsen here otherwise the file will be way too big
     g = gdal.Warp(merged, files_to_merge, 
-                  xRes=4000, yRes=4000, format="GTiff",
+                  xRes=RESOLUTION, yRes=RESOLUTION, format="GTiff",
                   dstSRS="EPSG:3857")
     g = None
     # Reproject to match the target
