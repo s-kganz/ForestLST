@@ -75,8 +75,10 @@ class WindowXarrayDataset(Dataset):
         window: dict[str, tuple[int, bool]],
         mask: xr.DataArray | str | None = None,
         downsample_step: int = 1,
+        na_thresh: float = 1.0
     ):
         self.downsample_step = downsample_step
+        self.na_thresh = na_thresh
         self.data = data
 
         # Check input
@@ -134,9 +136,15 @@ class WindowXarrayDataset(Dataset):
         """
         return np.stack(
             np.where(
-                ~np.isnan(
-                    array.rolling(dim=self.window_size, center=self.is_centered).mean()
+                (
+                    array.notnull()
+                    # Must be float datatype otherwise rolling mean returns the sum.
+                    # https://github.com/pydata/xarray/issues/8864
+                    .astype(np.float32)
+                    .rolling(dim=self.window_size, center=self.is_centered)
+                    .mean()
                 )
+                >= self.na_thresh
             )
         ).T[:: self.downsample_step, :]
 

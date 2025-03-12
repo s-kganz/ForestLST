@@ -69,7 +69,13 @@ def remove_log(logdir):
     '''
     assert os.path.exists(logdir)
     shutil.rmtree(os.path.join(logdir, "history"))
-    os.remove(os.path.join(logdir, "model.pth"))
+    try:
+        os.remove(os.path.join(logdir, "model.pth"))
+    except FileNotFoundError:
+        # File already doesn't exist for some reason. E.g.
+        # from a run that errored out.
+        pass
+    
     os.rmdir(logdir)
 
 class BaseTrainer:
@@ -387,8 +393,8 @@ class MaskedLossMixin(object):
 
 class EarlyStopMixin:
     '''
-    Stops training early if the mean validation loss of the last n epochs
-    does not improve compared to the n before it.
+    Stops training early if the (lightly smoothed) validation loss
+    does not improve after some number of epochs.
     '''
     def __init__(self, *args, stop_patience=5, rel_improve=0.01, **kwargs):
         self.stop_patience = stop_patience
