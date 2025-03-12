@@ -1,0 +1,14 @@
+# Define raster SRS, bounds, and resolution
+srs: "EPSG:3857"
+xmin: -13896215.609
+xmax: -11536215.609
+ymin: 3672302.419
+ymax: 6280302.419
+resolution: 4000
+
+# USFS regions to process
+regions: [3, 4, 5, 6]
+
+# Directories
+data_in: "data_in"
+data_working: "data_working"

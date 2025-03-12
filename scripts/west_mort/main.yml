@@ -1,7 +1,9 @@
 # This file defines a snakefile for creating the west_mort dataset.
-REGIONS = [3, 4, 5, 6]
-DATA_IN="data_in"
-DATA_WORKING="data_working"
+configfile: "scripts/west_mort/config.yml"
+REGIONS = config["regions"]
+print(REGIONS)
+DATA_IN=config["data_in"]
+DATA_WORKING=config["data_working"]
 YEARS=list(range(1997, 2024))
 
 import os
@@ -29,8 +31,8 @@ rule combine:
     output:
         os.path.join(DATA_WORKING, "camort.nc"),
         os.path.join(DATA_WORKING, "westmort.nc")
-    shell:
-        "python scripts/west_mort/combine_data.py"
+    script:
+        "combine_data.py"
 
 rule download_ads:
     input:
@@ -55,12 +57,12 @@ rule download_vodca:
 
 rule process_vodca:
     input:
-        os.path.join(DATA_WORKING, "damage_rasters/2010.tif"),
+        os.path.join(DATA_WORKING, "template.tif"),
         os.path.join(DATA_IN, "vodca/VODCA_X-band_1997-2018_v01.0.0.zip")
     output:
         os.path.join(DATA_WORKING, "summer_vod.nc")
-    shell:
-        "python scripts/west_mort/process_vodca.py"
+    script:
+        "process_vodca.py"
 
 rule download_nlcd:
     input:
@@ -88,34 +90,33 @@ rule burn_ads:
     output:
         os.path.join(DATA_WORKING, "forest_cover.tif"),
         os.path.join(DATA_WORKING, "forest_mask.tif"),
-        os.path.join(DATA_WORKING, "damage_rasters/2010.tif")
-    shell:
-        "python scripts/west_mort/burn_ads_polygons.py"
+    script:
+        "burn_ads_polygons.py"
 
 rule terrain:
     input:
-        os.path.join(DATA_WORKING, "damage_rasters/2010.tif")
     output:
         os.path.join(DATA_WORKING, "terrain.nc")
-    shell:
-        "python scripts/west_mort/download_terrain.py"
+    script:
+        "download_terrain.py"
 
 rule burn_mtbs:
     input: 
-        os.path.join(DATA_WORKING, "damage_rasters/2010.tif"),
         os.path.join(DATA_IN, "mtbs/mtbs_perims_DD.shp"),
     output:
         os.path.join(DATA_WORKING, "mtbs_rasters/2010.tif")
-    shell:
-        "python scripts/west_mort/burn_mtbs_polygons.py"
+    script:
+        "burn_mtbs_polygons.py"
 
 rule daymet:
     input:
-        os.path.join(DATA_WORKING, "damage_rasters/2010.tif"),
+        os.path.join(DATA_WORKING, "template.tif"),
     output:
         os.path.join(DATA_WORKING, "daymet", "{y}.nc")
-    shell:
-        "python scripts/west_mort/download_daymet.py {wildcards.y}"
+    params:
+        year="{y}"
+    script:
+        "download_daymet.py"
 
 rule download_nidrm:
     input:
@@ -128,10 +129,18 @@ rule download_nidrm:
 rule coarsen_nidrm:
     input:
         os.path.join(DATA_IN, "nidrm/L48_BA.gdb/timestamps"),
-        os.path.join(DATA_IN, "nidrm/L48_Totals.gdb/timestamps")
+        os.path.join(DATA_IN, "nidrm/L48_Totals.gdb/timestamps"),
+        os.path.join(DATA_WORKING, "forest_mask.tif")
     output:
         os.path.join(DATA_WORKING, "genus_basal_area/abies.tif"),
         os.path.join(DATA_WORKING, "genus_basal_area/picea.tif"),
         os.path.join(DATA_WORKING, "genus_basal_area/populus.tif"),
         os.path.join(DATA_WORKING, "genus_basal_area/pseudotsuga.tif"),
         os.path.join(DATA_WORKING, "genus_basal_area/tsuga.tif")
+
+rule template:
+    input:
+    output:
+        os.path.join(DATA_WORKING, "template.tif")
+    script:
+        "make_template.py"

@@ -4,6 +4,22 @@ import numpy as np
 import os
 ogr.UseExceptions()
 
+# Get parameters
+if 'snakemake' in globals():
+    from snakemake.script import snakemake
+    input_gdb = os.path.join(snakemake.config["data_in"], "nidrm", "L48_BA.gdb")
+    input_totals_gdb = os.path.join(snakemake.config["data_in"], "nidrm", "L48_totals.gdb")
+    output_dir = os.path.join(snakemake.config["data_working"], genus_basal_area)
+    out_xmin = float(snakemake.config["xmin"])
+    out_ymin = float(snakemake.config["ymin"])
+    out_xmax = float(snakemake.config["xmax"])
+    out_ymax = float(snakemake.config["ymax"])
+    template_srs = snakemake.config["srs"]
+    res = int(snakemake.config["resolution"])
+    forest_mask = os.path.join(snakemake.config["data_working"], "forest_mask.tif")
+else:
+    raise RuntimeError("Not running in snakemake pipeline!")
+
 genus = {
     "abies": "b10",
     "picea": "b90",
@@ -13,19 +29,6 @@ genus = {
     "tsuga": "b260"
 }
 
-input_gdb = "data_in/nidrm/L48_BA.gdb"
-input_totals_gdb = "data_in/nidrm/L48_Totals.gdb"
-output_dir = "data_working/genus_basal_area/"
-forest_mask = "data_working/forest_mask.tif"
-template_raster = "data_working/damage_rasters/2010.tif"
-template_srs = "EPSG:3857"
-
-# calculate output extent
-src = gdal.Open(template_raster)
-xmin, xres, xskew, ymax, yskew, yres  = src.GetGeoTransform()
-xmax = xmin + (src.RasterXSize * xres)
-ymin = ymax + (src.RasterYSize * yres)
-
 for genus, raster in genus.items():
     print("Now coarsening", genus)
     print("Warping")
@@ -33,9 +36,9 @@ for genus, raster in genus.items():
         "temp_coarse.tif",
         f'OpenFileGDB:{input_gdb}:{raster}',
         format="GTiff",
-        outputBounds=(xmin, ymin, xmax, ymax),
-        xRes=4000,
-        yRes=4000,
+        outputBounds=(out_xmin, out_ymin, out_xmax, out_ymax),
+        xRes=res,
+        yRes=res,
         dstSRS=template_srs,
         creationOptions=["BIGTIFF=YES", "COMPRESS=DEFLATE"],
         outputType=gdal.GDT_Int16,

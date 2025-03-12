@@ -7,10 +7,14 @@ import tempfile
 import os
 from glob import glob
 
-input_zip = "data_in/vodca/VODCA_X-band_1997-2018_v01.0.0.zip"
-temp_dir  = "data_working/vodca_summer_vod/"
-template  = xr.open_dataset("data_working/damage_rasters/2010.tif")
-output    = "data_working/summer_vod.nc"
+if 'snakemake' in globals():
+    from snakemake.script import snakemake
+    input_zip = os.path.join(snakemake.config["data_in"], "vodca/VODCA_X-band_1997-2018_v01.0.0.zip")
+    temp_dir = os.path.join(snakemake.config["data_working"], "vodca_summer_vod")
+    template = xr.open_dataset(os.path.join(snakemake.config["data_working"], "template.tif"))
+    output = os.path.join(snakemake.config["data_working"], "summer_vod.nc")
+else:
+    raise RuntimeError("Not running in snakemake pipeline!")
 
 # Make sure the input zip archive is there
 if not os.path.isfile(input_zip):

@@ -20,8 +20,12 @@ import earthaccess
 assert(earthaccess.login(strategy="netrc").authenticated)
 
 # Other parameters
-OUTPUT = "data_working/terrain.nc"
-TEMPLATE = xr.open_dataset("data_working/damage_rasters/2010.tif", engine="rasterio")
+if 'snakemake' in globals():
+    from snakemake.script import snakemake
+    TEMPLATE = xr.open_dataset(os.path.join(snakemake.config["data_working"], "template.tif"))
+    OUTPUT = os.path.join(snakemake.config["data_working"], "terrain.nc")
+else:
+    raise RuntimeError("Not running in snakemake pipeline!")
 
 dem_granules = earthaccess.search_data(
     short_name="ASTGTM",

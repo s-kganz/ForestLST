@@ -8,27 +8,35 @@ from pyproj.crs import CRS
 
 import os
 
+if 'snakemake' in globals():
+    from snakemake.script import snakemake
+    # Inputs
+    SURVEY_PATH = os.path.join(snakemake.config["data_working"], "survey_merged.gdb")
+    DAMAGE_PATH = os.path.join(snakemake.config["data_working"], "damage_merged.gdb")
+    TCC_PATH = os.path.join(snakemake.config["data_in"], "nlcd", "nlcd_tcc_conus_2021_v2021-4.tif")
+    # Outputs
+    OUTPUT_DIR = snakemake.config["data_working"]
+    DAMAGE_DIR = os.path.join(OUTPUT_DIR, "damage_rasters")
+    FAM_DIR = os.path.join(OUTPUT_DIR, "fam_rasters")
+    # Resolution/extent/srs
+    COARSE_RES = int(snakemake.config["resolution"])
+    OUT_SREF = snakemake.config["srs"]
+    xmin = float(snakemake.config["xmin"])
+    ymin = float(snakemake.config["ymin"])
+    xmax = float(snakemake.config["xmax"])
+    ymax = float(snakemake.config["ymax"])
+else:
+    raise RuntimeError("Not running in snakemake pipeline!")
+
 def get_authority_code(layer: ogr.Layer):
     sref = layer.GetSpatialRef()
     auth = sref.GetAuthorityName(None)
     code = sref.GetAuthorityCode(None)
     return auth + ":" + code
 
-# Input data
-SURVEY_PATH   = "data_working/survey_merged.gdb"
-DAMAGE_PATH   = "data_working/damage_merged.gdb"
-TCC_PATH      = "data_in/nlcd/nlcd_tcc_conus_2021_v2021-4.tif"
-
-# Outputs
-OUTPUT_DIR    = "data_working"
-DAMAGE_DIR    = os.path.join(OUTPUT_DIR, "damage_rasters")
-FAM_DIR       = os.path.join(OUTPUT_DIR, "fam_rasters")
-
 # Processing settings
 TCC_THRESHOLD = 10 # pixel percent cover to count as forested
 FINE_RES      = 100 # m, initial rasterization resolution
-COARSE_RES    = 4000 # m, final rasterization resolution
-OUT_SREF      = "EPSG:3857"
 
 for d in (OUTPUT_DIR, DAMAGE_DIR, FAM_DIR):
     if not os.path.exists(d):
@@ -48,11 +56,6 @@ assert(damage_layer is not None)
 assert(get_authority_code(survey_layer) == get_authority_code(damage_layer))
 
 print("Finished reading data")
-
-# Get extent of survey layer. This defines the modeling area.
-# N.b. the damage layer has a smaller extent.
-# !! These coordinates are passed to later functions in a different order !!
-xmin, xmax, ymin, ymax = survey_layer.GetExtent()
 
 # First we make the forest cover raster so we can calculate
 # FAM along with the damage rasters.

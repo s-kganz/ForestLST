@@ -14,8 +14,12 @@ except ImportError:
 import dask
 dask.config.set(scheduler='synchronous')
 
-template = xr.open_dataset("data_working/damage_rasters/2010.tif")
-output_dir = "data_working/daymet"
+if 'snakemake' in globals():
+    from snakemake.script import snakemake
+    template = xr.open_dataset(os.path.join(snakemake.config["data_working"], "template.tif"))
+    output_dir = os.path.join(snakemake.config["data_working"], "daymet")
+else:
+    raise RuntimeError("Not running in snakemake pipeline!")
 
 def make_annual_ds(y):
     print(y)
@@ -34,7 +38,7 @@ def make_annual_ds(y):
 
 if __name__ == "__main__":
     with warnings.catch_warnings(action="ignore"):
-        y = int(sys.argv[1])
+        y = int(snakemake.params["year"])
         annual_ds = make_annual_ds(y)
         print("Writing output")
         annual_ds.to_netcdf(f"{output_dir}/{y}.nc")
