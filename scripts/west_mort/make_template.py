@@ -16,8 +16,8 @@ if 'snakemake' in globals():
 else:
     raise RuntimeError("Not running in snakemake pipeline!")
 
-width  = int((xmax - xmin) / res)
-height = int((ymax - ymin) / res)
+width  = round((xmax - xmin) / res)
+height = round((ymax - ymin) / res)
 
 os.system(
     f"gdal_create -ot Byte -outsize {width} {height} -bands 1 -burn 0 -a_srs {srs} -a_ullr {xmin} {ymax} {xmax} {ymin} {os.path.join(out_dir, 'template.tif')}"

@@ -95,6 +95,7 @@ rule burn_ads:
 
 rule terrain:
     input:
+        os.path.join(DATA_WORKING, "template.tif")
     output:
         os.path.join(DATA_WORKING, "terrain.nc")
     script:
