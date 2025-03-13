@@ -63,18 +63,23 @@ def get_regr_metrics() -> list[torchmetrics.Metric]:
 def remove_log(logdir):
     '''
     This is a safer verison of using rm to remove a log directory. It is
-    assumed that the log contains a history directory and a model.pth
-    file. This function only removes those things and then clears
+    assumed that the log contains a history directory, model.pth,
+    model_definition.txt and possibly a .ipynb_checkpoints directory.
+    This function only removes those things and then clears
     the directory. Anything else in the directory is ignored.
     '''
     assert os.path.exists(logdir)
-    shutil.rmtree(os.path.join(logdir, "history"))
-    try:
-        os.remove(os.path.join(logdir, "model.pth"))
-    except FileNotFoundError:
-        # File already doesn't exist for some reason. E.g.
-        # from a run that errored out.
-        pass
+    shutil.rmtree(os.path.join(logdir, "history"), ignore_errors=True)
+    shutil.rmtree(os.path.join(logdir, ".ipynb_checkpoints"), ignore_errors=True)
+    for f in ["model.pth", "model_definition.txt"]:
+        try:
+            os.remove(os.path.join(logdir, "model.pth"))
+            os.remove(os.path.join(logdir, "model_definition.txt"))
+        except FileNotFoundError:
+            # File already doesn't exist for some reason. E.g.
+            # from a run that errored out.
+            continue
+    
     
     os.rmdir(logdir)
 
@@ -98,6 +103,7 @@ class BaseTrainer:
         timing_log: str = None,
         tensorboard_log: str = None,
         model_log: str = None,
+        defn_log: str = None
     ):
 
         self._verbose = verbose
@@ -160,6 +166,10 @@ class BaseTrainer:
                     f"Saved model already exists at {model_log}. "
                     "This will be overwritten on first epoch!"
                 )
+
+        # Write model definition to text file
+        with open(defn_log, mode='w+') as f:
+            f.write(str(model))
 
     def _log_scalar(self, key, value, step):
         """
