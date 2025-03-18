@@ -57,7 +57,8 @@ def get_regr_metrics() -> list[torchmetrics.Metric]:
     return [
         torchmetrics.NormalizedRootMeanSquaredError(),
         torchmetrics.R2Score(),
-        torchmetrics.MeanAbsoluteError()
+        torchmetrics.MeanAbsoluteError(),
+        torchmetrics.MeanSquaredError()
     ]
 
 def get_classif_metrics(task: str, num_classes: int) -> list[torchmetrics.Metric]:
