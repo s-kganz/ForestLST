@@ -60,6 +60,13 @@ def get_regr_metrics() -> list[torchmetrics.Metric]:
         torchmetrics.MeanAbsoluteError()
     ]
 
+def get_classif_metrics(task: str, num_classes: int) -> list[torchmetrics.Metric]:
+    return [
+        torchmetrics.Accuracy(task, num_classes=num_classes),
+        torchmetrics.CohenKappa(task, num_classes=num_classes),
+        torchmetrics.classification.MulticlassAveragePrecision(num_classes=num_classes)
+    ]
+
 def remove_log(logdir):
     '''
     This is a safer verison of using rm to remove a log directory. It is
@@ -73,11 +80,11 @@ def remove_log(logdir):
     shutil.rmtree(os.path.join(logdir, ".ipynb_checkpoints"), ignore_errors=True)
     for f in ["model.pth", "model_definition.txt"]:
         try:
-            os.remove(os.path.join(logdir, "model.pth"))
-            os.remove(os.path.join(logdir, "model_definition.txt"))
+            os.remove(os.path.join(logdir, f))
         except FileNotFoundError:
             # File already doesn't exist for some reason. E.g.
             # from a run that errored out.
+            warnings.warn(f"{f} not in log directory")
             continue
     
     
@@ -233,6 +240,20 @@ class BaseTrainer:
             self._reset_validation_iter()
             return None
 
+    def update_metrics(self, output: torch.Tensor, target: torch.Tensor) -> None:
+        for m in self._metrics:
+            if hasattr(m, "num_classes"):
+                # this is classification - don't modify shapes
+                m(output, target)
+            else:
+                # this is regression, flatten
+                m(output.view(-1), target.view(-1))
+
+    def log_metrics(self, suffix: str, epoch: int):
+        for m in self._metrics:
+            self._log_scalar(str(m) + f"/{suffix}", m.compute().cpu().numpy(), epoch)
+            m.reset()
+    
     def get_validation_loss(self, epoch: int):
         valid_loss = 0
         with torch.no_grad():
@@ -252,13 +273,10 @@ class BaseTrainer:
                 valid_loss += self._loss(output, y)
 
                 # Update metrics
-                for m in self._metrics:
-                    m(output.view(-1), y.view(-1))
+                self.update_metrics(output, y)
 
         # Append metrics to history and reset
-        for m in self._metrics:
-            self._log_scalar(str(m) + "/valid", m.compute().cpu().numpy(), epoch)
-            m.reset()
+        self.log_metrics("valid", epoch)
 
         return valid_loss.cpu() / n_batches
 
@@ -274,8 +292,7 @@ class BaseTrainer:
         self._optim.step()
 
         # Update metrics
-        for m in self._metrics:
-            m(outputs.view(-1), y.view(-1))
+        self.update_metrics(outputs, y)
 
         return batch_loss.item()
 
@@ -300,9 +317,7 @@ class BaseTrainer:
             train_loss += batch_loss / self._n_batches
 
         # Append metrics to history and reset
-        for m in self._metrics:
-            self._log_scalar(str(m) + "/train", m.compute().cpu().numpy(), epoch)
-            m.reset()
+        self.log_metrics("train", epoch)
 
         return train_loss
 
