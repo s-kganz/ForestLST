@@ -69,6 +69,8 @@ gdal.Warp(
     yRes=COARSE_RES,
     dstSRS=OUT_SREF,
     srcNodata=255,
+    # Nodata is also not forest
+    dstNodata=0,
     creationOptions=["BIGTIFF=YES", "COMPRESS=DEFLATE"],
     outputType=gdal.GDT_Byte,
     # Use median resampling so edge pixels don't get weird
@@ -96,7 +98,7 @@ gdal_calc.Calc(
     type="Byte",
     overwrite=True,
     creation_options=["BIGTIFF=YES", "COMPRESS=DEFLATE"],
-    NoDataValue=255
+    NoDataValue=0
 )
 
 print("Deleting temporary forest cover")
