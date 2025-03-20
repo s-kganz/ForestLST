@@ -56,7 +56,7 @@ def get_binary_metrics() -> list[torchmetrics.Metric]:
 def get_regr_metrics() -> list[torchmetrics.Metric]:
     return [
         torchmetrics.NormalizedRootMeanSquaredError(),
-        torchmetrics.R2Score(),
+        torchmetrics.PearsonCorrCoef(),
         torchmetrics.MeanAbsoluteError(),
         torchmetrics.MeanSquaredError()
     ]
@@ -254,6 +254,14 @@ class BaseTrainer:
         for m in self._metrics:
             self._log_scalar(str(m) + f"/{suffix}", m.compute().cpu().numpy(), epoch)
             m.reset()
+
+    def get_batch_loss(self, output: torch.Tensor, target: torch.Tensor):
+        '''
+        Calculate loss for a single batch. This function is called in the training
+        and validation loops. Overload this function with a mixin to implement
+        more elaborate loss behavior.
+        '''
+        return self._loss(output, target)
     
     def get_validation_loss(self, epoch: int):
         valid_loss = 0
@@ -271,7 +279,7 @@ class BaseTrainer:
                 output = self._model(X)
 
                 # Update loss
-                valid_loss += self._loss(output, y)
+                valid_loss += self.get_batch_loss(output, y)
 
                 # Update metrics
                 self.update_metrics(output, y)
@@ -286,14 +294,16 @@ class BaseTrainer:
 
         self._optim.zero_grad()
         outputs = self._model(X)
-        batch_loss = self._loss(outputs, y)
+        batch_loss = self.get_batch_loss(outputs, y)
 
-        # Update weights
-        batch_loss.backward()
-        self._optim.step()
+        # If loss is zero, skip optimization step. This usually occurs
+        # when a batch is entirely NA.
+        if batch_loss.item() > 0:
+            batch_loss.backward()
+            self._optim.step()
 
-        # Update metrics
-        self.update_metrics(outputs, y)
+            # Update metrics
+            self.update_metrics(outputs, y)
 
         return batch_loss.item()
 
@@ -388,34 +398,31 @@ class ReduceLRMixin(object):
         self._scheduler.step(valid_loss)
 
 class MaskedLossMixin(object):
+    '''
+    Allow for nans in loss calculation. This mixin:
+     - checks for no reduction in the loss function during init.
+     - calls .nanmean() on the loss
+    '''
     def __init__(self, *args, **kwargs):
         super(MaskedLossMixin, self).__init__(*args, **kwargs)
+
+    def mask_output_target(self, output, target):
+        mask = ~torch.isnan(target.view(-1))
+        return output.view(-1)[mask], target.view(-1)[mask]
         
-    def train_one_batch(self, batch):
-        # y possibly contains NAs. Replace these with
-        # zeros and save their positions.
-        X, y = batch
-        mask = torch.isnan(y)
-        y = torch.nan_to_num(y)
+    def get_batch_loss(self, output, target):
+        m_output, m_target = self.mask_output_target(output, target)
+        return self._loss(m_output, m_target)
 
-        # calculate loss
-        self._optim.zero_grad()
-        outputs = self._model(X)
-        batch_loss = self._loss(outputs, y)
-
-        # discard losses with na
-        batch_loss = torch.where(mask, torch.nan, batch_loss)
-        batch_loss_val = batch_loss.nanmean()
-
-        # Update weights
-        batch_loss_val.backward()
-        self._optim.step()
-
-        # Update metrics
+    def update_metrics(self, output: torch.Tensor, target: torch.Tensor) -> None:
+        m_output, m_target = self.mask_output_target(output, target)
+        
         for m in self._metrics:
-            m(outputs, y)
-
-        return batch_loss_val.item()
+            if hasattr(m, "num_classes"):
+                # this is classification - don't modify shapes
+                raise ValueError("NaNs not supported for classification metrics.")
+            else:
+                m(m_output, m_target)
 
 class EarlyStopMixin:
     '''
