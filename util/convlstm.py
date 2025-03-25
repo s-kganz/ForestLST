@@ -216,7 +216,6 @@ class DamageConvLSTM(torch.nn.Module):
                                  return_all_layers=return_all_layers)
 
         self.conv    = torch.nn.Conv2d(hidden_dim, 1, kernel_size=1)
-        self.sigmoid = torch.nn.Sigmoid()
         self.bn      = torch.nn.BatchNorm3d(input_dim)
 
     def forward(self, X):
@@ -234,10 +233,9 @@ class DamageConvLSTM(torch.nn.Module):
         X = self.convlstm(X)[1][0][0]
         # Convolve out the hidden dimensions
         X = self.conv(X)
-        # Pass to sigmoid
-        X = self.sigmoid(X)
         # Drop channel axis
-        return X.squeeze(1)
+        X = X.squeeze(1)
+        return X
 
 class ClassifierConvLSTM(torch.nn.Module):
     '''
