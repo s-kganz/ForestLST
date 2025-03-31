@@ -215,7 +215,7 @@ class DamageConvLSTM(torch.nn.Module):
                                  dropout=dropout, batch_first=batch_first, bias=bias, 
                                  return_all_layers=return_all_layers)
 
-        self.conv    = torch.nn.Conv2d(hidden_dim, 1, kernel_size=1)
+        self.conv    = torch.nn.Conv2d(hidden_dim, 1, kernel_size=3, padding="same")
         self.bn      = torch.nn.BatchNorm3d(input_dim)
 
     def forward(self, X):
@@ -268,3 +268,41 @@ class ClassifierConvLSTM(torch.nn.Module):
         # Convolve out the hidden dimensions
         X = self.conv(X)
         return X
+
+class MultiOutputConvLSTM(torch.nn.Module):
+    '''
+    Similar implementation as DamageConvLSTM, but outputtting a 2-tuple of tensors,
+    each with shape (N, L, H, W). This lets us calculate a likelihood and a
+    severity for a hurdle model.
+    '''
+    def __init__(self, input_dim, hidden_dim, kernel_size, num_layers,
+                 dropout=0, batch_first=False, bias=True, return_all_layers=False):
+        super(ClassifierConvLSTM, self).__init__()
+        self.convlstm = ConvLSTM(input_dim, hidden_dim, kernel_size, num_layers,
+                                 dropout=dropout, batch_first=batch_first, bias=bias, 
+                                 return_all_layers=return_all_layers)
+
+        self.conv1   = torch.nn.Conv2d(hidden_dim, 1, kernel_size=3, padding="same")
+        self.conv2   = torch.nn.Conv2d(hidden_dim, 1, kernel_size=3, padding="same")
+        self.bn      = torch.nn.BatchNorm3d(input_dim)
+
+    def forward(self, X):
+        # Do batchnorming
+        # Torch expects the channel axis to be second, but convlstm expects it
+        # to be third. So we have to permute the input, batchnorm it, and then
+        # permute it back.
+        # (N, T, C, H, W) -> (N, C, T, H, W)
+        X = X.permute(0, 2, 1, 3, 4)
+        X = self.bn(X)
+        # (N, C, T, H, W) -> (N, T, C, H, W)
+        X = X.permute(0, 2, 1, 3, 4)
+        
+        # Pass to convlstm
+        X = self.convlstm(X)[1][0][0]
+
+        # Convolve out hidden dims twice, once for each output
+        proba    = self.conv1(X)
+        severity = self.conv2(X)
+        
+        
+        return proba, severity
