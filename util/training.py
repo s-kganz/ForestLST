@@ -47,10 +47,10 @@ def get_binary_metrics() -> list[torchmetrics.Metric]:
     Instantiate commonly-used metrics for binary classification tasks.
     '''
     return [
-        torchmetrics.BinaryAUROC(),
-        torchmetrics.BinaryAccuracy(),
-        torchmetrics.BinaryPrecision(),
-        torchmetrics.BinaryRecall()
+        torchmetrics.classification.BinaryAUROC(),
+        torchmetrics.classification.BinaryAccuracy(),
+        torchmetrics.classification.BinaryPrecision(),
+        torchmetrics.classification.BinaryRecall()
     ]
 
 def get_regr_metrics() -> list[torchmetrics.Metric]:
@@ -405,6 +405,9 @@ class MaskedLossMixin(object):
     '''
     def __init__(self, *args, **kwargs):
         super(MaskedLossMixin, self).__init__(*args, **kwargs)
+        for m in self._metrics:
+            if hasattr(m, "num_classes"):
+                raise ValueError("NaNs not supported for classification metrics.")
 
     def mask_output_target(self, output, target):
         mask = ~torch.isnan(target.view(-1))
@@ -412,18 +415,12 @@ class MaskedLossMixin(object):
         
     def get_batch_loss(self, output, target):
         m_output, m_target = self.mask_output_target(output, target)
-        return self._loss(m_output, m_target)
+        return super(MaskedLossMixin, self).get_batch_loss(m_output, m_target)
 
     def update_metrics(self, output: torch.Tensor, target: torch.Tensor) -> None:
         m_output, m_target = self.mask_output_target(output, target)
+        super(MaskedLossMixin, self).update_metrics(m_output, m_target)
         
-        for m in self._metrics:
-            if hasattr(m, "num_classes"):
-                # this is classification - don't modify shapes
-                raise ValueError("NaNs not supported for classification metrics.")
-            else:
-                m(m_output, m_target)
-
 class EarlyStopMixin:
     '''
     Stops training early if the (lightly smoothed) validation loss
