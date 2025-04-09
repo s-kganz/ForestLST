@@ -130,7 +130,7 @@ for y in years:
         yRes=FINE_RES,
         allTouched=True,
         where=f"SURVEY_YEAR={y}",
-        burnValues=[100],
+        attribute="SEVERITY",
         initValues=[0],
         outputBounds=[xmin, ymin, xmax, ymax],
         outputSRS=OUT_SREF,
