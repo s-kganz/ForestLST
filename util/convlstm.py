@@ -231,10 +231,6 @@ class DamageConvLSTM(torch.nn.Module):
         
         # Pass to convlstm
         X = self.convlstm(X)[1][0][0]
-        # Convolve out the hidden dimensions
-        X = self.conv(X)
-        # Drop channel axis
-        X = X.squeeze(1)
         return X
 
 class ClassifierConvLSTM(torch.nn.Module):
@@ -269,40 +265,52 @@ class ClassifierConvLSTM(torch.nn.Module):
         X = self.conv(X)
         return X
 
-class MultiOutputConvLSTM(torch.nn.Module):
+class StepSigmoid(torch.nn.Module):
     '''
-    Similar implementation as DamageConvLSTM, but outputtting a 2-tuple of tensors,
-    each with shape (N, L, H, W). This lets us calculate a likelihood and a
-    severity for a hurdle model.
+    Steep sigmoid function with a bias parameter. Used to approximate
+    a hard threshold function.
+    '''
+    def __init__(self, alpha=1e3):
+        super(StepSigmoid, self).__init__()
+        self.bias = torch.nn.Parameter(torch.tensor([0.5]))
+        self.alpha = alpha
+
+    def forward(self, X):
+        return torch.sigmoid(self.alpha * (X - self.bias))
+
+class HurdleConvLSTM(torch.nn.Module):
+    '''
+    Combines two DamageConvLSTMs to estimate both probablity and severity of 
+    mortality. This lets us implement a hurdle model in a custom training loop.
     '''
     def __init__(self, input_dim, hidden_dim, kernel_size, num_layers,
                  dropout=0, batch_first=False, bias=True, return_all_layers=False):
-        super(ClassifierConvLSTM, self).__init__()
-        self.convlstm = ConvLSTM(input_dim, hidden_dim, kernel_size, num_layers,
-                                 dropout=dropout, batch_first=batch_first, bias=bias, 
-                                 return_all_layers=return_all_layers)
+        super(HurdleConvLSTM, self).__init__()
+        self.proba_convlstm = DamageConvLSTM(
+            input_dim, hidden_dim, kernel_size, num_layers,
+            dropout=dropout, batch_first=batch_first, bias=bias,
+            return_all_layers=return_all_layers
+        )
 
-        self.conv1   = torch.nn.Conv2d(hidden_dim, 1, kernel_size=3, padding="same")
-        self.conv2   = torch.nn.Conv2d(hidden_dim, 1, kernel_size=3, padding="same")
-        self.bn      = torch.nn.BatchNorm3d(input_dim)
+        self.severity_convlstm = DamageConvLSTM(
+            input_dim, hidden_dim, kernel_size, num_layers,
+            dropout=dropout, batch_first=batch_first, bias=bias,
+            return_all_layers=return_all_layers
+        )
+        
+        self.sigmoid    = torch.nn.Sigmoid()
+        self.step       = StepSigmoid()
 
     def forward(self, X):
-        # Do batchnorming
-        # Torch expects the channel axis to be second, but convlstm expects it
-        # to be third. So we have to permute the input, batchnorm it, and then
-        # permute it back.
-        # (N, T, C, H, W) -> (N, C, T, H, W)
-        X = X.permute(0, 2, 1, 3, 4)
-        X = self.bn(X)
-        # (N, C, T, H, W) -> (N, T, C, H, W)
-        X = X.permute(0, 2, 1, 3, 4)
-        
-        # Pass to convlstm
-        X = self.convlstm(X)[1][0][0]
+        proba    = self.proba_convlstm(X)
+        severity = self.severity_convlstm(X)
 
-        # Convolve out hidden dims twice, once for each output
-        proba    = self.conv1(X)
-        severity = self.conv2(X)
-        
-        
+        # Compress both to [0, 1]
+        proba = self.sigmoid(proba)
+        severity = self.sigmoid(severity)
+
+        # Threshold severity based on probability
+        severity = severity * self.step(proba)
+
         return proba, severity
+        
