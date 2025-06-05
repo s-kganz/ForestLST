@@ -25,6 +25,7 @@ if 'snakemake' in globals():
     ymin = float(snakemake.config["ymin"])
     xmax = float(snakemake.config["xmax"])
     ymax = float(snakemake.config["ymax"])
+    years = list(range(int(snakemake.config["year_start"]), int(snakemake.config["year_end"])+1))
 else:
     raise RuntimeError("Not running in snakemake pipeline!")
 
@@ -35,7 +36,7 @@ def get_authority_code(layer: ogr.Layer):
     return auth + ":" + code
 
 # Processing settings
-TCC_THRESHOLD = 10 # pixel percent cover to count as forested
+TCC_THRESHOLD = 0 # pixel percent cover to count as forested
 FINE_RES      = 100 # m, initial rasterization resolution
 
 for d in (OUTPUT_DIR, DAMAGE_DIR, FAM_DIR):
@@ -70,8 +71,8 @@ gdal.Warp(
     dstSRS=OUT_SREF,
     srcNodata=255,
     # Nodata is also not forest
-    dstNodata=0,
-    creationOptions=["BIGTIFF=YES", "COMPRESS=DEFLATE"],
+    dstNodata=-1,
+    creationOptions=["BIGTIFF=YES", "COMPRESS=DEFLATE", "PIXELTYPE=SIGNEDBYTE"],
     outputType=gdal.GDT_Byte,
     # Use median resampling so edge pixels don't get weird
     # values for cover.
@@ -91,7 +92,7 @@ gdal_calc.Calc(
 
 print("Thresholding forest cover")
 gdal_calc.Calc(
-    calc=f"np.logical_and(a > {TCC_THRESHOLD}, a <= 100)",
+    calc=f"np.logical_and(a >= {TCC_THRESHOLD}, a <= 100)",
     user_namespace={"np": np},
     a=os.path.join(OUTPUT_DIR, "forest_cover.tif"),
     outfile=os.path.join(OUTPUT_DIR, "forest_mask.tif"),
@@ -108,7 +109,6 @@ print("Burning damage rasters")
 # Get list of unique years
 sql = 'SELECT DISTINCT SURVEY_YEAR FROM merged'
 query = survey_ds.ExecuteSQL(sql)
-years = list(int(feat.GetField(0)) for i,feat in enumerate(query))
 
 for y in years:
     print("Now burning", y)

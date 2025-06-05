@@ -1,10 +1,12 @@
 # This file defines a snakefile for creating the west_mort dataset.
-configfile: "scripts/west_mort/config.yml"
+configfile: "scripts/west_mort/configs/creek_config.yml"
 REGIONS = config["regions"]
 print(REGIONS)
 DATA_IN=config["data_in"]
 DATA_WORKING=config["data_working"]
-YEARS=list(range(1997, 2024))
+OUTPUT=config["final_output"]
+
+YEARS=list(range(int(config["year_start"]), int(config["year_end"])+1))
 
 import os
 os.makedirs(DATA_IN, exist_ok=True)
@@ -12,25 +14,23 @@ os.makedirs(DATA_WORKING, exist_ok=True)
 
 rule all:
     input:
-        os.path.join(DATA_WORKING, "camort.nc"),
-        os.path.join(DATA_WORKING, "westmort.nc")
+        os.path.join(DATA_WORKING, OUTPUT),
 
 rule combine:
     input:
         os.path.join(DATA_WORKING, "terrain.nc"),
         os.path.join(DATA_WORKING, "forest_cover.tif"),
-        os.path.join(DATA_WORKING, "mtbs_rasters/2010.tif"),
-        os.path.join(DATA_WORKING, "summer_vod.nc"),
+        expand(os.path.join(DATA_WORKING, "mtbs_rasters", "{y}.tif"), y=YEARS),
+        #os.path.join(DATA_WORKING, "summer_vod.nc"),
         expand(os.path.join(DATA_WORKING, "daymet", "{y}.nc"), y=YEARS),
-        os.path.join(DATA_WORKING, "damage_rasters/2010.tif"),
+        expand(os.path.join(DATA_WORKING, "damage_rasters", "{y}.tif"), y=YEARS),
         os.path.join(DATA_WORKING, "genus_basal_area/abies.tif"),
-        os.path.join(DATA_WORKING, "genus_basal_area/picea.tif"),
+        #os.path.join(DATA_WORKING, "genus_basal_area/picea.tif"),
         os.path.join(DATA_WORKING, "genus_basal_area/populus.tif"),
         os.path.join(DATA_WORKING, "genus_basal_area/pseudotsuga.tif"),
         os.path.join(DATA_WORKING, "genus_basal_area/tsuga.tif")
     output:
-        os.path.join(DATA_WORKING, "camort.nc"),
-        os.path.join(DATA_WORKING, "westmort.nc")
+        os.path.join(DATA_WORKING, OUTPUT)
     script:
         "combine_data.py"
 
@@ -90,6 +90,7 @@ rule burn_ads:
     output:
         os.path.join(DATA_WORKING, "forest_cover.tif"),
         os.path.join(DATA_WORKING, "forest_mask.tif"),
+        expand(os.path.join(DATA_WORKING, "damage_rasters", "{y}.tif"), y=YEARS)
     script:
         "burn_ads_polygons.py"
 
@@ -105,7 +106,7 @@ rule burn_mtbs:
     input: 
         os.path.join(DATA_IN, "mtbs/mtbs_perims_DD.shp"),
     output:
-        os.path.join(DATA_WORKING, "mtbs_rasters/2010.tif")
+        expand(os.path.join(DATA_WORKING, "mtbs_rasters/{y}.tif"), y=YEARS)
     script:
         "burn_mtbs_polygons.py"
 
@@ -125,7 +126,7 @@ rule download_nidrm:
         os.path.join(DATA_IN, "nidrm/L48_BA.gdb/timestamps"),
         os.path.join(DATA_IN, "nidrm/L48_Totals.gdb/timestamps")
     shell:
-        "rm -r data_in/nidrm/L48_BA.gdb data_in/nidrm/L48_Totals.gdb && ./scripts/west_mort/download_nidrm.sh"
+        "rm -r data_in/nidrm/L48_BA.gdb data_in/nidrm/L48_Totals.gdb && ./scripts/west_mort/download_nidrm.sh {DATA_IN}"
 
 rule coarsen_nidrm:
     input:
@@ -134,10 +135,12 @@ rule coarsen_nidrm:
         os.path.join(DATA_WORKING, "forest_mask.tif")
     output:
         os.path.join(DATA_WORKING, "genus_basal_area/abies.tif"),
-        os.path.join(DATA_WORKING, "genus_basal_area/picea.tif"),
+        #os.path.join(DATA_WORKING, "genus_basal_area/picea.tif"),
         os.path.join(DATA_WORKING, "genus_basal_area/populus.tif"),
         os.path.join(DATA_WORKING, "genus_basal_area/pseudotsuga.tif"),
         os.path.join(DATA_WORKING, "genus_basal_area/tsuga.tif")
+    script:
+        "coarsen_genus_ba.py"
 
 rule template:
     input:

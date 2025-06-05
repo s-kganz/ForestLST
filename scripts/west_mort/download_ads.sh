@@ -13,9 +13,6 @@ declare -a ADS_LINKS=(
 for ads_link in "${ADS_LINKS[@]}"; do
     echo "Downloading" $(basename $ads_link)"..."
     curl -sS $ads_link \
-      -H "User-Agent: Firefox/131.0" \
-      -H "Accept-Language: en-US,en;q=0.5" \
-      -H "Accept-Encoding: gzip, deflate, br, zstd" \
       --output $1/$(basename $ads_link)
 
     unzip -qq -o $1/$(basename $ads_link) -d $1/ads

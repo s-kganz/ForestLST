@@ -1,0 +1,21 @@
+# Define raster SRS, bounds, and resolution
+srs: "EPSG:3857"
+xmin: -13323661.0
+xmax: -13240761.0
+ymin: 4437694.0
+ymax: 4529594.0
+resolution: 100
+
+# Years of data to process
+year_start: 2015
+year_end: 2023
+
+# USFS regions to process
+regions: [5]
+
+# Directories
+data_in: "data_in"
+data_working: "data_working"
+
+# Final output netcdf
+final_output: "creek_mort.nc"

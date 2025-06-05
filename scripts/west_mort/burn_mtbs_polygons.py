@@ -16,6 +16,7 @@ if 'snakemake' in globals():
     out_xmax = float(snakemake.config["xmax"])
     out_ymax = float(snakemake.config["ymax"])
     res = int(snakemake.config["resolution"])
+    years = list(range(int(snakemake.config["year_start"]), int(snakemake.config["year_end"])+1))
 else:
     raise RuntimeError("Not running in snakemake pipeline!")
 
@@ -35,8 +36,6 @@ assert(mtbs_ds is not None)
 assert(mtbs_layer is not None)
 
 print("Finished reading data")
-
-years = list(range(1997, 2024))
 
 for y in years:
     print("Now burning", y)

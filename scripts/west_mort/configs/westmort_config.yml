@@ -6,9 +6,16 @@ ymin: 3672302.419
 ymax: 6280302.419
 resolution: 4000
 
+# Years of data to process
+year_start: 1997
+year_end: 2023
+
 # USFS regions to process
 regions: [3, 4, 5, 6]
 
 # Directories
 data_in: "data_in"
 data_working: "data_working"
+
+# Final output netcdf
+final_output: "westmort.nc"

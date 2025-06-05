@@ -7,7 +7,10 @@ import os
 dask.config.set(scheduler="synchronous")
 #client = Client()
 #client
-CA_BOUNDS_3857 = (-13846000.0, 3842000.0, -12950000.0, 5162000.0)
+
+if 'snakemake' in globals():
+    from snakemake.script import snakemake
+    out_nc = os.path.join(snakemake.config["data_working"], snakemake.config["final_output"])
 
 # Define several functions to parse intermediate data
 def preprocess_mortality(ds):
@@ -97,6 +100,7 @@ if __name__ == "__main__":
             y=damage.y
         )
 
+    '''
     vod = xr.open_dataset("data_working/summer_vod.nc")\
         .drop_vars("spatial_ref")
     
@@ -105,6 +109,7 @@ if __name__ == "__main__":
         x=damage.x,
         y=damage.y
     )
+    '''
 
     genus_ba = xr.open_mfdataset(
         "data_working/genus_basal_area/*.tif",
@@ -119,22 +124,22 @@ if __name__ == "__main__":
 
     # Merge it
     all_data = xr.combine_by_coords(
-        [vod, terrain, fire, daymet, damage, treecover, genus_ba],
+        [terrain, fire, daymet, damage, treecover, genus_ba],
         coords="minimal",
         compat="override",
         combine_attrs="drop"
-    ).drop_vars(["delta_vod"]).rio.write_crs(3857)
+    ).rio.write_crs(3857)
     
     # Define encoding
     int_encoding  = {"dtype": "int16", "_FillValue": -9999}
     byte_encoding = {"dtype": "int8", "_FillValue": -128}
     encoding={
         "abies": int_encoding,
-        "picea": int_encoding,
+        #"picea": int_encoding,
         "populus": int_encoding,
         "pseudotsuga": int_encoding,
         "tsuga": int_encoding,
-        "vod": int_encoding,
+        #"vod": int_encoding,
         "elev": int_encoding,
         "slope": int_encoding,
         "northness": int_encoding,
@@ -150,14 +155,16 @@ if __name__ == "__main__":
 
     # Write output
     all_data.to_netcdf(
-        "data_working/westmort.nc",
+        out_nc,
         encoding=encoding
     )
 
     # Crop to CA and save
+    '''
     ca_data = all_data.rio.clip_box(*CA_BOUNDS_3857)
     ca_data.to_netcdf(
         "data_working/camort.nc",
         encoding=encoding
     )
+    '''
     
