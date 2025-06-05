@@ -10,3 +10,4 @@ logs/
 presentations/
 map.qgz
 .snakemake/
+mort_datasets/
