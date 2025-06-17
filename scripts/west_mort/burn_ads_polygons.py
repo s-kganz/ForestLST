@@ -37,7 +37,7 @@ def get_authority_code(layer: ogr.Layer):
 
 # Processing settings
 TCC_THRESHOLD = 0 # pixel percent cover to count as forested
-FINE_RES      = 100 # m, initial rasterization resolution
+FINE_RES      = 25 # m, initial rasterization resolution
 
 for d in (OUTPUT_DIR, DAMAGE_DIR, FAM_DIR):
     if not os.path.exists(d):
@@ -73,7 +73,7 @@ gdal.Warp(
     # Nodata is also not forest
     dstNodata=-1,
     creationOptions=["BIGTIFF=YES", "COMPRESS=DEFLATE", "PIXELTYPE=SIGNEDBYTE"],
-    outputType=gdal.GDT_Byte,
+    outputType=gdal.GDT_Int8,
     # Use median resampling so edge pixels don't get weird
     # values for cover.
     resampleAlg=gdal.GRA_Med,
@@ -117,6 +117,8 @@ for y in years:
     survey_subset = survey_ds.ExecuteSQL(sql)
     d_count = damage_subset.GetFeatureCount()
     s_count = survey_subset.GetFeatureCount()
+    print("# Damage:", d_count)
+    print("# Survey:", s_count)
     if d_count == 0 or s_count == 0:
         print(f"Survey or damage polygons are empty for year {y}! "
               f"Skipping this year.")

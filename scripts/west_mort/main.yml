@@ -1,10 +1,11 @@
 # This file defines a snakefile for creating the west_mort dataset.
-configfile: "scripts/west_mort/configs/creek_config.yml"
+configfile: "scripts/west_mort/configs/soap_teak_config.yml"
 REGIONS = config["regions"]
 print(REGIONS)
 DATA_IN=config["data_in"]
 DATA_WORKING=config["data_working"]
 OUTPUT=config["final_output"]
+SRS=config["srs"]
 
 YEARS=list(range(int(config["year_start"]), int(config["year_end"])+1))
 
@@ -80,7 +81,7 @@ rule merge_ads:
     shell:
         # Snakemake automatically creates the .gdb folders, but this prevents gdal from making the dataset.
         # So we have to prepend the script with a rm -r to delete the directories.
-        "rm -r data_working/damage_merged.gdb data_working/survey_merged.gdb && ./scripts/west_mort/merge_ads_polygons.sh"
+        "rm -r data_working/damage_merged.gdb data_working/survey_merged.gdb && ./scripts/west_mort/merge_ads_polygons.sh {SRS}"
 
 rule burn_ads:
     input:
@@ -132,7 +133,7 @@ rule coarsen_nidrm:
     input:
         os.path.join(DATA_IN, "nidrm/L48_BA.gdb/timestamps"),
         os.path.join(DATA_IN, "nidrm/L48_Totals.gdb/timestamps"),
-        os.path.join(DATA_WORKING, "forest_mask.tif")
+        #os.path.join(DATA_WORKING, "forest_mask.tif")
     output:
         os.path.join(DATA_WORKING, "genus_basal_area/abies.tif"),
         #os.path.join(DATA_WORKING, "genus_basal_area/picea.tif"),
