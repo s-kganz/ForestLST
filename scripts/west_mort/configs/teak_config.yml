@@ -1,0 +1,21 @@
+# Define raster SRS, bounds, and resolution
+srs: "EPSG:26911"
+xmin: 318062.2372026083
+xmax: 321962.2372026084
+ymin: 4091464.9740625913
+ymax: 4093964.9740625913
+resolution: 25
+
+# Years of data to process
+year_start: 2000
+year_end: 2020
+
+# USFS regions to process
+regions: [5]
+
+# Directories
+data_in: "data_in"
+data_working: "data_working"
+
+# Final output netcdf
+final_output: "teak_mort.nc"
