@@ -45,7 +45,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tempdir:
     # Have to coarsen here otherwise the file will be way too big
     g = gdal.Warp(merged, files_to_merge, 
                   xRes=RESOLUTION, yRes=RESOLUTION, format="GTiff",
-                  dstSRS="EPSG:3857")
+                  dstSRS="EPSG:3857", resampleAlg="bilinear")
     g = None
     # Reproject to match the target
     print("Reprojecting")
