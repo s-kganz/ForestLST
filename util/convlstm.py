@@ -231,6 +231,8 @@ class DamageConvLSTM(torch.nn.Module):
         
         # Pass to convlstm
         X = self.convlstm(X)[1][0][0]
+        # Convolve out hidden dim
+        X = self.conv(X)
         return X
 
 class ClassifierConvLSTM(torch.nn.Module):
