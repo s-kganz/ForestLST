@@ -1,7 +1,6 @@
 # This file defines a snakefile for creating the west_mort dataset.
 configfile: "scripts/west_mort/configs/soap_teak_config.yml"
 REGIONS = config["regions"]
-print(REGIONS)
 DATA_IN=config["data_in"]
 DATA_WORKING=config["data_working"]
 OUTPUT=config["final_output"]
