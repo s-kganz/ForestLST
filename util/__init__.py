@@ -8,9 +8,9 @@ try:
     from . import training
     from . import convlstm
     from . import datasets
-except ImportError:
+except ImportError as e:
     import warnings
-    warnings.warn("PyTorch not found! Module util.training will not be loaded.")
+    warnings.warn(f"ImportError on util.training: {str(e)}. Module util.training will not be loaded.")
 
 try:
     from . import gcs

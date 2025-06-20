@@ -2,7 +2,6 @@ from torch.utils.data import Dataset
 import xarray as xr
 import numpy as np
 import xbatcher
-from imblearn.under_sampling import RandomUnderSampler
 from typing import Callable
 
 
