@@ -4,7 +4,7 @@ xmin: -13896215.609
 xmax: -11536215.609
 ymin: 3672302.419
 ymax: 6280302.419
-resolution: 4000
+resolution: 1000
 
 # Years of data to process
 year_start: 1997
