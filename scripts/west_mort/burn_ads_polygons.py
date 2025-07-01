@@ -7,6 +7,7 @@ from pyproj import Transformer
 from pyproj.crs import CRS
 
 import os
+import warnings
 
 if 'snakemake' in globals():
     from snakemake.script import snakemake
@@ -27,7 +28,20 @@ if 'snakemake' in globals():
     ymax = float(snakemake.config["ymax"])
     years = list(range(int(snakemake.config["year_start"]), int(snakemake.config["year_end"])+1))
 else:
-    raise RuntimeError("Not running in snakemake pipeline!")
+    warnings.warn("Not running in snakemake pipeline! Will use default parameters")
+    SURVEY_PATH = os.path.join("data_working", "survey_merged.gdb")
+    DAMAGE_PATH = os.path.join("data_working", "damage_merged.gdb")
+    TCC_PATH = os.path.join("data_in", "nlcd", "nlcd_tcc_conus_2021_v2021-4.tif")
+    OUTPUT_DIR = "data_working"
+    DAMAGE_DIR = os.path.join(OUTPUT_DIR, "ads_1k_rasters")
+    FAM_DIR = os.path.join(OUTPUT_DIR, "ads_1k_fam_rasters")
+    COARSE_RES = 1000
+    OUT_SREF = "EPSG:3857"
+    years = list(range(2000, 2022))
+    xmin = -13896215.609
+    xmax = -11536215.609
+    ymin =  3672302.419
+    ymax =  6280302.419
 
 def get_authority_code(layer: ogr.Layer):
     sref = layer.GetSpatialRef()
@@ -36,8 +50,8 @@ def get_authority_code(layer: ogr.Layer):
     return auth + ":" + code
 
 # Processing settings
-TCC_THRESHOLD = 0 # pixel percent cover to count as forested
-FINE_RES      = 25 # m, initial rasterization resolution
+TCC_THRESHOLD = 10 # pixel percent cover to count as forested
+FINE_RES      = 100 # m, initial rasterization resolution
 
 for d in (OUTPUT_DIR, DAMAGE_DIR, FAM_DIR):
     if not os.path.exists(d):
@@ -216,3 +230,4 @@ for y in years:
     os.remove(f"temp_damage_burn_coarse_{y}.tif")
     os.remove(f"temp_survey_burn_{y}.tif")
     os.remove(f"temp_damage_burn_coarse_survey_mask{y}.tif")
+    
