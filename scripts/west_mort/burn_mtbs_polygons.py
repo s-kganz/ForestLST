@@ -4,6 +4,7 @@ import os
 
 import xarray as xr
 import rioxarray
+from rasterio.warp import transform_bounds
 
 # Get parameters
 if 'snakemake' in globals():
@@ -24,7 +25,7 @@ mtbs_ds     = gdal.OpenEx(MTBS_PATH, 0)
 mtbs_layer  = mtbs_ds.GetLayerByIndex(0)
 
 # Determine output extent in the input CRS
-src_xmin, src_xmax, src_ymin, src_ymax = mtbs_layer.GetExtent()
+src_xmin, src_ymin, src_xmax, src_ymax = transform_bounds(CRS, 4326, out_xmin, out_ymin, out_xmax, out_ymax)
 print("Input extent in input CRS:", src_xmin, src_ymin, src_xmax, src_ymax)
 
 # Determine output extent in the output CRS
@@ -53,7 +54,7 @@ for y in years:
         mtbs_ds,
         SQLStatement=sql,
         SQLDialect="SQLITE",
-        # Note we are thinking in degrees here
+        # Note we are thinking in degrees here, this is about 25 m
         xRes=1.0/1000,
         yRes=1.0/1000,
         #noData=-1,
@@ -86,3 +87,4 @@ for y in years:
     
     # Delete the temporary raster
     os.remove(f"temp_fine_burn_{y}.tif")
+    
