@@ -68,9 +68,7 @@ if __name__ == "__main__":
         .squeeze(drop=True)\
         .drop_vars(["spatial_ref"])\
         .rename(band_data="treecover")\
-        .expand_dims(time=damage.time.shape[0])\
         .assign_coords(
-            time=damage.time,
             x=damage.x,
             y=damage.y
         )
@@ -93,9 +91,7 @@ if __name__ == "__main__":
 
     terrain = xr.open_dataset("data_working/terrain.nc")\
         .drop_vars(["spatial_ref", "band"])\
-        .expand_dims(time=damage.time.shape[0])\
         .assign_coords(
-            time=damage.time,
             x=damage.x,
             y=damage.y
         )
@@ -115,9 +111,7 @@ if __name__ == "__main__":
         "data_working/genus_basal_area/*.tif",
         preprocess=preprocess_ba
     )\
-        .expand_dims(time=damage.time.shape[0])\
         .assign_coords(
-            time=damage.time,
             x=damage.x,
             y=damage.y
         )
