@@ -17,7 +17,7 @@ if 'snakemake' in globals():
     out_ymax = float(snakemake.config["ymax"])
     template_srs = snakemake.config["srs"]
     res = int(snakemake.config["resolution"])
-    forest_mask = os.path.join(snakemake.config["data_working"], "forest_mask.tif")
+    #forest_mask = os.path.join(snakemake.config["data_working"], "forest_mask.tif")
 else:
     raise RuntimeError("Not running in snakemake pipeline!")
 

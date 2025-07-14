@@ -8,5 +8,5 @@ NLCD_TCC_LINK="https://www.mrlc.gov/downloads/sciweb1/shared/mrlc/data-bundles/n
 curl -sS $NLCD_TCC_LINK \
     --output "$1/$(basename $NLCD_TCC_LINK)"
 
-unzip -qq -o "$1/$(basename $NLCD_TCC_LINK)" -d "$1/nlcd"
+unzip -qq "$1/$(basename $NLCD_TCC_LINK)" -d "$1/nlcd"
 rm "$1/$(basename $NLCD_TCC_LINK)"

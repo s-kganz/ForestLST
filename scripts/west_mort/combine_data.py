@@ -10,7 +10,9 @@ dask.config.set(scheduler="synchronous")
 
 if 'snakemake' in globals():
     from snakemake.script import snakemake
-    out_nc = os.path.join(snakemake.config["data_working"], snakemake.config["final_output"])
+    out_nc = snakemake.config["final_output"]
+else:
+    out_nc = "mortality_dataset.nc"
 
 # Define several functions to parse intermediate data
 def preprocess_mortality(ds):
@@ -116,9 +118,21 @@ if __name__ == "__main__":
             y=damage.y
         )
 
+    gfw = xr.open_mfdataset(
+        "data_working/gfw_damage/*.tif",
+        preprocess=preprocess_mortality,
+        concat_dim="time", 
+        combine="nested"
+    )\
+        .assign_coords(
+            x=damage.x,
+            y=damage.y
+        )\
+        .rename(mortality="gfw_damage")
+
     # Merge it
     all_data = xr.combine_by_coords(
-        [terrain, fire, daymet, damage, treecover, genus_ba],
+        [terrain, fire, daymet, damage, treecover, genus_ba, gfw],
         coords="minimal",
         compat="override",
         combine_attrs="drop"
@@ -140,6 +154,7 @@ if __name__ == "__main__":
         "eastness": int_encoding,
         "fire": byte_encoding,
         "mortality": byte_encoding,
+        "gfw_damage": byte_encoding,
         #"fam": byte_encoding,
         "prcp": int_encoding,
         "vp": int_encoding,
@@ -152,13 +167,4 @@ if __name__ == "__main__":
         out_nc,
         encoding=encoding
     )
-
-    # Crop to CA and save
-    '''
-    ca_data = all_data.rio.clip_box(*CA_BOUNDS_3857)
-    ca_data.to_netcdf(
-        "data_working/camort.nc",
-        encoding=encoding
-    )
-    '''
     

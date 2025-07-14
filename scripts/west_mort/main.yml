@@ -1,5 +1,7 @@
-# This file defines a snakefile for creating the west_mort dataset.
-configfile: "scripts/west_mort/configs/soap_teak_config.yml"
+# This file defines a snakefile for creating the west_mort dataset. Note that this must be run from the
+# CLI with the --configfile flag set.
+if not "regions" in config:
+    raise ValueError("Snakemake must be run with the --configfile flag set")
 REGIONS = config["regions"]
 DATA_IN=config["data_in"]
 DATA_WORKING=config["data_working"]
@@ -9,12 +11,14 @@ SRS=config["srs"]
 YEARS=list(range(int(config["year_start"]), int(config["year_end"])+1))
 
 import os
+head, _ = os.path.split(config["final_output"])
+os.makedirs(head, exist_ok=True)
 os.makedirs(DATA_IN, exist_ok=True)
 os.makedirs(DATA_WORKING, exist_ok=True)
 
 rule all:
     input:
-        os.path.join(DATA_WORKING, OUTPUT),
+        OUTPUT
 
 rule combine:
     input:
@@ -28,9 +32,10 @@ rule combine:
         #os.path.join(DATA_WORKING, "genus_basal_area/picea.tif"),
         os.path.join(DATA_WORKING, "genus_basal_area/populus.tif"),
         os.path.join(DATA_WORKING, "genus_basal_area/pseudotsuga.tif"),
-        os.path.join(DATA_WORKING, "genus_basal_area/tsuga.tif")
+        os.path.join(DATA_WORKING, "genus_basal_area/tsuga.tif"),
+        expand(os.path.join(DATA_WORKING, "gfw_damage", "{y}.tif"), y=YEARS)
     output:
-        os.path.join(DATA_WORKING, OUTPUT)
+        OUTPUT
     script:
         "combine_data.py"
 
@@ -141,6 +146,13 @@ rule coarsen_nidrm:
         os.path.join(DATA_WORKING, "genus_basal_area/tsuga.tif")
     script:
         "coarsen_genus_ba.py"
+
+rule coarsen_gfw:
+    input:
+    output:
+        expand(os.path.join(DATA_WORKING, "gfw_damage", "{y}.tif"), y=YEARS)
+    script:
+        "coarsen_gfw.py"
 
 rule template:
     input:

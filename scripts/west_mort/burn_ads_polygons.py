@@ -50,8 +50,8 @@ def get_authority_code(layer: ogr.Layer):
     return auth + ":" + code
 
 # Processing settings
-TCC_THRESHOLD = 10 # pixel percent cover to count as forested
-FINE_RES      = 100 # m, initial rasterization resolution
+TCC_THRESHOLD = 0 # ignore forest cover until we get to modeling
+FINE_RES      = COARSE_RES / 10 # m, initial rasterization resolution
 
 for d in (OUTPUT_DIR, DAMAGE_DIR, FAM_DIR):
     if not os.path.exists(d):
