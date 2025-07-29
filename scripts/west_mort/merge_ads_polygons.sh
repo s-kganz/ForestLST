@@ -15,9 +15,29 @@ for f in $INPUT_DIRECTORY/*.gdb; do
     damage_layer=DAMAGE_AREAS_FLAT_AllYears_CONUS_Rgn${region}
     survey_layer=SURVEYED_AREAS_FLAT_AllYears_CONUS_Rgn${region}
 
-    # If severity was not recorded, gapfill with 10%. This corresponds to roughly the mean of observations with a 
-    # recorded severity value from 2012 - 2023.
-    damage_sql="SELECT SHAPE,SURVEY_YEAR,DCA_CODE,DAMAGE_TYPE_CODE,PERCENT_MID,ifnull(PERCENT_MID, 10) AS SEVERITY FROM $damage_layer WHERE ST_Area(SHAPE) > 10000 AND (DAMAGE_TYPE_CODE = 2 OR DAMAGE_TYPE_CODE = 11) AND (DCA_CODE/1000 = 11 OR DCA_CODE/1000 = 15 OR DCA_CODE=50003) ORDER BY SEVERITY"
+    # Following the FHP(R1-R4) method in Hicke et al. (2020).
+    # If TPA exists, remap that to an AA class
+    # If AA exists, remap that to 3 classes. Prefer AA over TPA
+    damage_sql="
+    SELECT SHAPE,SURVEY_YEAR,DCA_CODE,DAMAGE_TYPE_CODE,PERCENT_AFFECTED,LEGACY_TPA,
+    CASE
+        WHEN PERCENT_AFFECTED='Very Light (1-3%)' THEN 5
+        WHEN PERCENT_AFFECTED='Light (4-10%)' THEN 5
+        WHEN PERCENT_AFFECTED='Moderate (11-29%)' THEN 20
+        WHEN PERCENT_AFFECTED='Severe (30-50%)' THEN 65
+        WHEN PERCENT_AFFECTED='Very Severe (>50%)' THEN 65
+        WHEN LEGACY_TPA > 0 AND LEGACY_TPA < 10 THEN 5
+        WHEN LEGACY_TPA >= 10 AND LEGACY_TPA <= 30 THEN 20
+        WHEN LEGACY_TPA >= 30 THEN 65
+        ELSE NULL
+    END AS SEVERITY
+    FROM $damage_layer 
+    WHERE 
+        (DAMAGE_TYPE_CODE = 2 OR DAMAGE_TYPE_CODE = 11) AND 
+        (DCA_CODE/1000 = 11 OR DCA_CODE/1000 = 15 OR DCA_CODE=50003) AND
+        SEVERITY IS NOT NULL
+    ORDER BY SEVERITY
+    "
     
     ogr2ogr $DAMAGE_TEMP/$bname $f -dialect SQLite -sql "$damage_sql" -nln damage -overwrite
     ogr2ogr $SURVEY_TEMP/$bname $f $survey_layer -select $SURVEY_FIELDS -overwrite
