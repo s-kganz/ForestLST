@@ -211,19 +211,6 @@ for y in years:
     rb.SetNoDataValue(-1)
     
     damage, rb = None, None
-
-    # Calculate FAM
-    gdal_calc.Calc(
-        calc="100*np.clip(a / (b+1), a_min=0, a_max=1)",
-        a=os.path.join(DAMAGE_DIR, f"{y}.tif"),
-        b=os.path.join(OUTPUT_DIR, "forest_cover.tif"),
-        user_namespace={"np": np},
-        outfile=os.path.join(FAM_DIR, f"{y}.tif"),
-        type="Int8",
-        overwrite=True,
-        NoDataValue=-1,
-        creation_options=["BIGTIFF=YES", "COMPRESS=DEFLATE"]
-    )
     
     # Delete the temporary rasters
     os.remove(f"temp_damage_burn_fine_{y}.tif")

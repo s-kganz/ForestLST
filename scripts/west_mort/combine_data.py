@@ -55,7 +55,8 @@ if __name__ == "__main__":
         concat_dim="time", 
         combine="nested"
     )
-    
+
+    '''
     fam = xr.open_mfdataset(
         "data_working/fam_rasters/*.tif",
         preprocess=preprocess_fam,
@@ -65,6 +66,7 @@ if __name__ == "__main__":
         x=damage.x,
         y=damage.y
     )
+    '''
 
     treecover = xr.open_dataset("data_working/forest_cover.tif")\
         .squeeze(drop=True)\
