@@ -19,7 +19,7 @@ for f in $INPUT_DIRECTORY/*.gdb; do
     # If TPA exists, remap that to an AA class
     # If AA exists, remap that to 3 classes. Prefer AA over TPA
     damage_sql="
-    SELECT SHAPE,SURVEY_YEAR,DCA_CODE,DAMAGE_TYPE_CODE,PERCENT_AFFECTED,LEGACY_TPA,
+    SELECT SHAPE,SURVEY_YEAR,HOST_CODE,DCA_CODE,DAMAGE_TYPE_CODE,PERCENT_AFFECTED,LEGACY_TPA,
     CASE
         WHEN PERCENT_AFFECTED='Very Light (1-3%)' THEN 5
         WHEN PERCENT_AFFECTED='Light (4-10%)' THEN 5
