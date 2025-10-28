@@ -44,6 +44,7 @@ GFW_LINKS = [
     "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2022-v1.10/Hansen_GFC-2022-v1.10_lossyear_40N_120W.tif"
 ]
 GFW_FILES = [os.path.join(GFW_DIR, os.path.basename(link)) for link in GFW_LINKS]
+MAX_FIRE_DELAY = 2
 
 if not all(os.path.exists(f) for f in GFW_FILES):
     for link, file in zip(GFW_LINKS, GFW_FILES):
@@ -78,11 +79,13 @@ for y in years:
     )
 
     print("Mask out fire")
-    
+
+    # New post-fire canopy losses are substantial 2 years post-fire
+    # https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2025EF006373
     sql = f"""
     SELECT *, CAST(strftime('%Y', Ig_Date) as INT) AS YEAR 
     FROM mtbs_perims_DD 
-    WHERE YEAR = {y} OR YEAR = {y-1}
+    WHERE YEAR >= {y-MAX_FIRE_DELAY} AND YEAR <= {y}
     """
     mtbs_subset = mtbs_ds.ExecuteSQL(sql, dialect="SQLITE")
 
