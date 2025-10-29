@@ -67,9 +67,13 @@ for y in years:
     print(y)
     value = y % 2000
 
+    # GFW encodes non-lost pixels as zero. Return a constant zero 
+    # for the year 2000.
+    expression = f"100 * (a == {value})" if y != 2000 else "0 * a"
+
     print("Get loss pixels")
     calc = gdal_calc.Calc(
-        calc=f"100 * (a == {value})",
+        calc=expression,
         a="temp_gfw_lossyear_merge.tif",
         outfile=f"temp_gfw_loss_{y}.tif",
         type="Int8",
