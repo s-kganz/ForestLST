@@ -6,52 +6,19 @@ channels:
 
 dependencies:
   - python~=3.11.0
-  # Required until https://github.com/jupyterhub/repo2docker/pull/1196 is merged
-  - jupyterhub-singleuser~=4.0.1
-  # nbgitpuller is very helpful when distributing user content
-  - nbgitpuller~=1.2.0
   # Specify major version of jupyterlab to use. Manually bump it when you want to upgrade
   # jupyterlab version
   - jupyterlab>=4.4,<5
   # This provides memory usage stats on JupyterLab and classic notebook
   - jupyter-resource-usage~=1.0.1
-  # https://syncthing.net/ provides a dropbox-like interface for syncing directories across users,
-  # hubs and machines. Used along with `jupyter-syncthing-proxy`.
-  - jupyter-syncthing-proxy==1.0.3
-  - syncthing~=1.22.1
-  # gh-scoped-creds allows users to securely push to GitHub from their repo.
-  # https://blog.jupyter.org/securely-pushing-to-github-from-a-jupyterhub-3ee42dfdc54f has
-  # some more information
-  - gh-scoped-creds==4.1
   # More git tools from github-cli
   - gh~=2.32.1
-
-  # VS Code support
-  - jupyter-vscode-proxy~=0.5
-  - code-server~=4.23
 
   # Jupyter tools
   - ipython~=8.17
   - ipywidgets~=8.1.1
-  - jupyter-ai~=2.20
-  # - jupyter-collaboration~=2.0.1
-  - jupyter-offlinenotebook~=0.3.1
-  - jupyter-sshd-proxy~=0.2
-  - jupyterlab-favorites~=3.2.1
-  - jupyterlab-geojson~=3.4.0
-  - jupyterlab-git~=0.50.0
-  - jupyterlab-h5web~=11.1.0
-  - jupyterlab-myst~=2.4.2
-  - jupyterlab_pygments~=0.3.0 # To bring extension up-to-date
-  - jupytergis>=0.5.0
   - jupytext~=1.17.0
   - nbdime~=4.0.1
-  # JupyterBook Addons
-  - sphinx~=7.3
-  - sphinxcontrib-bibtex
-  # Interactive apps
-  - itables~=2.1
-  - voila~=0.5
 
   # Core scientific python stack
   - cython~=3.0.10 # optimization, C API access
@@ -71,7 +38,6 @@ dependencies:
   # Visualization packages
   - bokeh~=3.2.2
   - cartopy~=0.23.0 # geospatial plotting with matplotlib
-  - geemap~=0.32
   - geoviews~=1.10.1
   - hvplot~=0.10.0
   - ipyleaflet~=0.19.2
@@ -81,9 +47,6 @@ dependencies:
   - matplotlib~=3.9.0
   - plotly~=5.18.0
   - seaborn~=0.13.2 # statistical plotting with matplotlib
-
-  # Machine Learning packages
-  - py-xgboost~=2.1.1=cpu*
 
   # Geospatial data packages
   - geopandas>=0.14.4
@@ -129,12 +92,21 @@ dependencies:
   - flake8~=7.1
   - tqdm~=4.66 # progress bars, with notebook support
 
-  # Maybe needed for qgis? https://github.com/conda-forge/qgis-feedstock/issues/263
-  - pyopencl
+  # Packages specific to climate work
+  - esmpy~=8.4.2
+  - xmip~=0.7.1
+
+  # Packages specific to cryo work
+  - h5coro~=0.0.6
+  - icepyx~=1.2.0
+  - itslive~=0.3.2
+  - is2view~=0.0.8
+  - sliderule~=4.5
+  - snowexsql~=0.5
+
+
   # Resolves warning "No ICDs were found": https://github.com/CryoInTheCloud/hub-image/issues/50
   - ocl-icd-system
-  # needed for Linux desktop to work
-  - websockify>=0.10
   # Includes new subcommands (`switch` & `restore`) and vulnerability fixes
   # over the version available via ubuntu sources
   - git>=2.39
@@ -142,9 +114,7 @@ dependencies:
   # Not all packages will be available from conda-forge, we install from pip when we need to.
   - pip~=25.0.0
   - pip:
-      # For JupyterBook
-      - jinja-markdown==1.210911
-      - jupyter-book>=2.0.0b3
+      - gdal==3.10.3
       - xarray-spatial==0.4.0
       - snakemake==9.13.4
       - lightgbm==4.6.0
