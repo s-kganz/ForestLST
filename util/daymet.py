@@ -4,6 +4,11 @@ import rioxarray
 import rasterio
 import numpy as np
 
+try:
+    assert earthaccess.login().authenticated
+except AssertionError:
+    raise RuntimeError("Earthaccess login failed! Did you set up your credentials?")
+
 from util.const import LCC_PROJ
 from typing import Callable
 
