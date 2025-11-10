@@ -7,8 +7,8 @@ ymax: 6280302.419
 resolution: 4000
 
 # Years of data to process
-year_start: 1999
-year_end: 2023
+year_start: 2005
+year_end: 2007
 
 # USFS regions to process
 regions: [3, 4, 5, 6]
@@ -19,3 +19,4 @@ data_working: "data_working"
 
 # Final output netcdf
 final_output: "mort_datasets/westmort.nc"
+survey_output: "mort_datasets/damage_merged.gdb"

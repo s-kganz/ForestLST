@@ -6,6 +6,7 @@ REGIONS = config["regions"]
 DATA_IN=config["data_in"]
 DATA_WORKING=config["data_working"]
 OUTPUT=config["final_output"]
+SURVEY_OUTPUT=config["survey_output"]
 SRS=config["srs"]
 
 YEARS=list(range(int(config["year_start"]), int(config["year_end"])+1))
@@ -82,10 +83,12 @@ rule merge_ads:
     output:
         os.path.join(DATA_WORKING, "damage_merged.gdb/timestamps"),
         os.path.join(DATA_WORKING, "survey_merged.gdb/timestamps")
-    shell:
+    run:
         # Snakemake automatically creates the .gdb folders, but this prevents gdal from making the dataset.
         # So we have to prepend the script with a rm -r to delete the directories.
-        "rm -r data_working/damage_merged.gdb data_working/survey_merged.gdb && ./scripts/west_mort/merge_ads_polygons.sh {SRS}"
+        shell("rm -r {DATA_WORKING}/damage_merged.gdb {DATA_WORKING}/survey_merged.gdb") 
+        shell("./scripts/west_mort/merge_ads_polygons.sh {SRS}")
+        if SURVEY_OUTPUT: shell("cp -r {DATA_WORKING}/damage_merged.gdb {SURVEY_OUTPUT}")
 
 rule burn_ads:
     input:

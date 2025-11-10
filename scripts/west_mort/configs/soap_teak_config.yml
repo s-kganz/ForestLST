@@ -7,7 +7,7 @@ ymax: 4106295.0
 resolution: 30
 
 # Years of data to process
-year_start: 2000
+year_start: 2015
 year_end: 2022
 
 # USFS regions to process
@@ -19,3 +19,4 @@ data_working: "data_working"
 
 # Final output netcdf
 final_output: "mort_datasets/soap_teak_mort.nc"
+survey_output: 0
