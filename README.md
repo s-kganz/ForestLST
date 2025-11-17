@@ -26,9 +26,7 @@ If you want to use any of the scripts that work with `earthaccess`, you will hav
 Now you should be able to authenticate with `earthacess.login(strategy="netrc")`.
 
 ## Datasets
-If you don't care about recreating the model-ready datasets we used in this project, the netcdf files are available in the github release and on Zenodo. You can place them in your directory with
-
-#TODO add commands
+If you don't care about recreating the model-ready datasets we used in this project, the netcdf files are available in the github release and on Zenodo under the `mort_datasets` directory.
 
 ## Recreating results
 We provided a static version of the `data_out` directory at submission time on github/Zenodo. Placing this in the project directory will let you recreate all the paper figures with `notebooks/plots.ipynb`. Other notebooks do the following:
