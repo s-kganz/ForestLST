@@ -7,7 +7,7 @@ ymax: 4106295.0
 resolution: 30
 
 # Years of data to process
-year_start: 2015
+year_start: 1999
 year_end: 2022
 
 # USFS regions to process
