@@ -14,6 +14,7 @@ from glob import glob
 if 'snakemake' in globals():
     from snakemake.script import snakemake
     GFW_DIR = os.path.join(snakemake.config["data_in"], "gfw")
+    os.makedirs(GFW_DIR, exist_ok=True)
     DATA_WORKING = snakemake.config["data_working"]
     DATA_IN = snakemake.config["data_in"]
     RES = int(snakemake.config["resolution"])

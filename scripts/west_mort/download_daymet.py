@@ -8,6 +8,7 @@ import warnings
 try: 
     import util
 except ImportError:
+    sys.path.append(os.getcwd())
     sys.path.append("..")
     import util
 
