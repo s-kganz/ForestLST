@@ -29,7 +29,7 @@ Now you should be able to authenticate with `earthacess.login(strategy="netrc")`
 If you don't care about recreating the model-ready datasets we used in this project, the netcdf files are available in the github release and on Zenodo under the `mort_datasets` directory.
 
 ## Recreating results
-We provided a static version of the `data_out` directory at submission time on github/Zenodo. Placing this in the project directory will let you recreate all the paper figures with `notebooks/plots.ipynb`. Other notebooks do the following:
+We provided a static, compressed version of the `data_out` directory at submission time on github/Zenodo. Inflating this and `mort_datasets` in the project directory will let you recreate all the paper figures with `notebooks/plots.ipynb`. Other notebooks do the following:
 
  - `ads_iou.ipynb`: calculate annual overlap between sequential ADS survey polygons.
  - `gbm_[westmort|soap_teak].ipynb`: fit gradient-boosted regression models to the continental and local mortality datasets.
