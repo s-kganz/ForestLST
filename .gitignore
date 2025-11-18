@@ -1,6 +1,7 @@
 data_in/
 data_working/
 data_out/
+dist/
 .ipynb_checkpoints
 __pycache__/
 tmp/
