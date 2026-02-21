@@ -30,3 +30,10 @@ COARSEN_FACTOR = 100
 
 # Output projection for gridded data
 PROJECTION = "EPSG:5070"
+
+# Covariates used by the GBM
+GBM_COVARIATES = {
+    "hydro": ["HT", "P50", "WUE", "rdmax", "gsmax"],
+    "topo": ["elev", "heat"],
+    "climate": ["tmin", "vpd", "def"]
+}
