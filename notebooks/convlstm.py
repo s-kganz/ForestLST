@@ -215,7 +215,7 @@ class DamageConvLSTM(torch.nn.Module):
                                  dropout=dropout, batch_first=batch_first, bias=bias, 
                                  return_all_layers=return_all_layers)
 
-        self.conv    = torch.nn.Conv2d(hidden_dim, 1, kernel_size=3, padding="same")
+        #self.conv    = torch.nn.Conv2d(hidden_dim, 1, kernel_size=kernel_size, padding="same")
         self.bn      = torch.nn.BatchNorm3d(input_dim)
 
     def forward(self, X):
@@ -232,87 +232,6 @@ class DamageConvLSTM(torch.nn.Module):
         # Pass to convlstm
         X = self.convlstm(X)[1][0][0]
         # Convolve out hidden dim
-        X = self.conv(X)
+        #X = self.conv(X)
         return X
-
-class ClassifierConvLSTM(torch.nn.Module):
-    '''
-    Similar implementation as DamageConvLSTM, but outputtting tensors of
-    shape (N, L, H, W), where L is the number of possible classes.
-    '''
-    def __init__(self, input_dim, hidden_dim, n_classes, kernel_size, num_layers,
-                 dropout=0, batch_first=False, bias=True, return_all_layers=False):
-        super(ClassifierConvLSTM, self).__init__()
-        self.convlstm = ConvLSTM(input_dim, hidden_dim, kernel_size, num_layers,
-                                 dropout=dropout, batch_first=batch_first, bias=bias, 
-                                 return_all_layers=return_all_layers)
-
-        self.conv    = torch.nn.Conv2d(hidden_dim, n_classes, kernel_size=1)
-        self.bn      = torch.nn.BatchNorm3d(input_dim)
-
-    def forward(self, X):
-        # Do batchnorming
-        # Torch expects the channel axis to be second, but convlstm expects it
-        # to be third. So we have to permute the input, batchnorm it, and then
-        # permute it back.
-        # (N, T, C, H, W) -> (N, C, T, H, W)
-        X = X.permute(0, 2, 1, 3, 4)
-        X = self.bn(X)
-        # (N, C, T, H, W) -> (N, T, C, H, W)
-        X = X.permute(0, 2, 1, 3, 4)
-        
-        # Pass to convlstm
-        X = self.convlstm(X)[1][0][0]
-        # Convolve out the hidden dimensions
-        X = self.conv(X)
-        return X
-
-class StepSigmoid(torch.nn.Module):
-    '''
-    Steep sigmoid function with a bias parameter. Used to approximate
-    a hard threshold function.
-    '''
-    def __init__(self, alpha=1e3):
-        super(StepSigmoid, self).__init__()
-        self.bias = torch.nn.Parameter(torch.tensor([0.5]))
-        self.alpha = alpha
-
-    def forward(self, X):
-        return torch.sigmoid(self.alpha * (X - self.bias))
-
-class HurdleConvLSTM(torch.nn.Module):
-    '''
-    Combines two DamageConvLSTMs to estimate both probablity and severity of 
-    mortality. This lets us implement a hurdle model in a custom training loop.
-    '''
-    def __init__(self, input_dim, hidden_dim, kernel_size, num_layers,
-                 dropout=0, batch_first=False, bias=True, return_all_layers=False):
-        super(HurdleConvLSTM, self).__init__()
-        self.proba_convlstm = DamageConvLSTM(
-            input_dim, hidden_dim, kernel_size, num_layers,
-            dropout=dropout, batch_first=batch_first, bias=bias,
-            return_all_layers=return_all_layers
-        )
-
-        self.severity_convlstm = DamageConvLSTM(
-            input_dim, hidden_dim, kernel_size, num_layers,
-            dropout=dropout, batch_first=batch_first, bias=bias,
-            return_all_layers=return_all_layers
-        )
-        
-        self.sigmoid    = torch.nn.Sigmoid()
-        self.step       = StepSigmoid()
-
-    def forward(self, X):
-        proba    = self.proba_convlstm(X)
-        severity = self.severity_convlstm(X)
-
-        # Compress both to [0, 1]
-        proba = self.sigmoid(proba)
-        severity = self.sigmoid(severity)
-
-        # Threshold severity based on probability
-        severity = severity * self.step(proba)
-
-        return proba, severity
         
