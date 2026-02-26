@@ -14,3 +14,4 @@ map.qgz
 mort_datasets/
 figures/
 *.png
+*/lightning_logs/*
