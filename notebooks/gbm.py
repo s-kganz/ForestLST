@@ -86,6 +86,19 @@ def get_results(y: np.ndarray, y_hat: np.ndarray) -> dict[str, float]:
         "auc": auc
     }
 
+def balance_zeros(df: pd.DataFrame, target: str, nz_ratio: float=1.0) -> pd.DataFrame:
+    '''
+    Balances a zero-inflated dataset based on the distribution of `df[target]`. The
+    resulting dataframe will have `nz_ratio` times as many zeros as nonzero values
+    of `target`, sampled randomly. All nonzero rows of `df` are retained.
+    '''
+    df_zeros = df[df[target] == 0]
+    df_nz    = df[df[target] >  0]
+    zeros_sample = df_zeros.sample(n=int(df_nz.shape[0]*nz_ratio))
+
+    return pd.concat([df_nz, zeros_sample], axis=0)
+    
+
 if __name__ == "__main__":
     x = np.random.uniform(low=0, high=100, size=100)
     logits = safe_logit(x)
