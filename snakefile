@@ -1,6 +1,7 @@
 REGIONS = [3, 4, 5, 6]
 DATA_IN = "data_in"
 DATA_WORKING = "data_working"
+FIGURES = "figures"
 FINAL_OUTPUT = ""
 SRS = "EPSG:5071"
 YEAR_START = 1999
@@ -12,10 +13,70 @@ YEARS=list(range(YEAR_START, YEAR_END+1))
 import os
 os.makedirs(DATA_IN, exist_ok=True)
 os.makedirs(DATA_WORKING, exist_ok=True)
+os.makedirs(FIGURES, exist_ok=True)
 
 rule all:
     input:
-        OUTPUT
+        # Final training dataset
+        os.path.join(DATA_WORKING, "westmort.zarr/.zmetadata"),
+        # Model artifacts
+        os.path.join(DATA_WORKING, "mort_convnet", "mort_convnet_shap.nc"),
+        os.path.join(DATA_WORKING, "gbm_temporal_cv.csv"),
+        os.path.join(DATA_WORKING, "gbm_temporal_cv_predictions.parquet"),
+        os.path.join(DATA_WORKING, "mort_convnet", "mort_convnet_shap.nc"),
+        # Figures
+        os.path.join(FIGURES, "nsurvey_map_damage_area.png"),
+        os.path.join(FIGURES, "validation_performance.png"),
+        os.path.join(FIGURES, "mort_area_validation_stats.png"),
+        os.path.join(FIGURES, "insect_weather_site_over_time.png"),
+        os.path.join(FIGURES, "driver_map_triangle.png"),
+        os.path.join(FIGURES, "cnn_shap.png"),
+        os.path.join(FIGURES, "hist2d_one_to_one.png")
+        
+
+rule figures:
+    input: 
+        os.path.join(DATA_IN, "usfs_region_boundaries", "usfs_regions_simple.shp"),
+        os.path.join(DATA_WORKING, "westmort.zarr/.zmetadata"),
+        os.path.join(DATA_WORKING, "gbm_temporal_cv.csv"),
+        os.path.join(DATA_WORKING, "gbm_shap.zarr/.zmetadata"),
+        os.path.join(DATA_WORKING, "mort_convnet", "mort_convnet_shap.nc"),
+        os.path.join(DATA_WORKING, "gbm_temporal_cv_predictions.parquet")
+    output:
+        os.path.join(FIGURES, "nsurvey_map_damage_area.png"),
+        os.path.join(FIGURES, "validation_performance.png"),
+        os.path.join(FIGURES, "mort_area_validation_stats.png"),
+        os.path.join(FIGURES, "insect_weather_site_over_time.png"),
+        os.path.join(FIGURES, "driver_map_triangle.png"),
+        os.path.join(FIGURES, "cnn_shap.png"),
+        os.path.join(FIGURES, "hist2d_one_to_one.png")
+    notebook:
+        "notebooks/plots.ipynb"
+
+rule gbm_temporal_cv:
+    input:
+        os.path.join(DATA_WORKING, "westmort.zarr/.zmetadata")
+    output:
+        os.path.join(DATA_WORKING, "gbm_temporal_cv.csv"),
+        os.path.join(DATA_WORKING, "gbm_temporal_cv_predictions.csv")
+    notebook:
+        "notebooks/gbm_temporal_cv.ipynb"
+
+rule gbm_shap:
+    input:
+        os.path.join(DATA_WORKING, "westmort.zarr/.zmetadata")
+    output:
+        os.path.join(DATA_WORKING, "gbm_shap.zarr/.zmetadata")
+    notebook:
+        "notebooks/gbm_shap.ipynb"
+
+rule convnet:
+    input:
+        os.path.join(DATA_WORKING, "westmort.zarr/.zmetadata")
+    output:
+        os.path.join(DATA_WORKING, "mort_convnet", "mort_convnet_shap.nc")
+    notebook:
+        "notebooks/mort_convnet.ipynb"
 
 rule combine:
     input:
