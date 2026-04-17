@@ -106,6 +106,7 @@ dependencies:
   - fasttreeshap==0.1.6
   - contextily==1.6.2
   - mpltern==1.0.4
+  - mpl-scatter-density==0.8
 
 
   # Resolves warning "No ICDs were found": https://github.com/CryoInTheCloud/hub-image/issues/50
