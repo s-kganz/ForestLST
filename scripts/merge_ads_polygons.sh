@@ -49,8 +49,8 @@ survey_files=$(find $SURVEY_TEMP -maxdepth 1 -mindepth 1)
 echo $damage_files
 echo $survey_files
 
-ogrmerge -o $OUTPUT_DIRECTORY/damage_merged.gdb $damage_files -single -overwrite_ds -progress -s_srs "ESRI:102039" -t_srs $1
-ogrmerge -o $OUTPUT_DIRECTORY/survey_merged.gdb $survey_files -single -overwrite_ds -progress -s_srs "ESRI:102039" -t_srs $1
+ogrmerge -o $OUTPUT_DIRECTORY/damage_merged.gdb $damage_files -single -overwrite_ds -progress -s_srs "ESRI:102039" -t_srs "EPSG:5070"
+ogrmerge -o $OUTPUT_DIRECTORY/survey_merged.gdb $survey_files -single -overwrite_ds -progress -s_srs "ESRI:102039" -t_srs "EPSG:5070"
 
 rm -rf $DAMAGE_TEMP
 rm -rf $SURVEY_TEMP

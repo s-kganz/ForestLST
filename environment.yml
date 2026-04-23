@@ -2,6 +2,8 @@ name: forestmort
 
 channels:
   - conda-forge
+  # Snakemake lives in bioconda
+  - bioconda
   - nodefaults
 
 dependencies:
@@ -92,17 +94,19 @@ dependencies:
   - flake8~=7.1
   - tqdm~=4.66 # progress bars, with notebook support
 
-  # Packages specific to climate work
-  - esmpy~=8.4.2
-  - xmip~=0.7.1
-
-  # Packages specific to cryo work
-  - h5coro~=0.0.6
-  - icepyx~=1.2.0
-  - itslive~=0.3.2
-  - is2view~=0.0.8
-  - sliderule~=4.5
-  - snowexsql~=0.5
+  # Deep learning packages
+  - pytorch-lightning==2.6.0
+  - pytorch==2.9.1
+  - torchmetrics==1.8.2
+  
+  # Project-specific packages
+  - xarray-spatial>=0.4.0
+  - snakemake==9.13.4
+  - lightgbm==4.6.0
+  - fasttreeshap==0.1.6
+  - contextily==1.6.2
+  - mpltern==1.0.4
+  - mpl-scatter-density==0.8
 
 
   # Resolves warning "No ICDs were found": https://github.com/CryoInTheCloud/hub-image/issues/50
@@ -115,10 +119,6 @@ dependencies:
   - pip~=25.0.0
   - pip:
       - gdal==3.10.3
-      - xarray-spatial==0.4.0
-      - snakemake==9.13.4
-      - lightgbm==4.6.0
-      - fasttreeshap==0.1.6
-      - scienceplots==2.1.1
+      - shap==0.50.0
       - matplotlib-map-utils==3.1.1
-      - contextily==1.6.2
+      - git+https://github.com/s-kganz/xbatcher.git@2e721fc

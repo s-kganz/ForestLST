@@ -1,7 +1,6 @@
 #!/bin/bash
-
-mkdir -p $1
-mkdir -p $1/ads
+DATA_IN=data_in
+mkdir -p $DATA_IN/ads
 
 declare -a ADS_LINKS=(
     "https://www.fs.usda.gov/foresthealth/docs/IDS_Data_for_Download/CONUS_Region3_AllYears.gdb.zip"
