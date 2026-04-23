@@ -16,7 +16,7 @@ First, clone the repository
 git clone https://github.com/s-kganz/ForestLST
 cd ForestLST
 ```
-Then, create the environment. `environment.yml` is a streamlined version of the [CryoCloud Python image](https://github.com/CryoInTheCloud/hub-image), plus a few libraries pip install'd on top.
+Then, create the environment. `environment.yml` is combination of the [CryoCloud Python image](https://github.com/CryoInTheCloud/hub-image) and the [Pangeo PyTorch image](https://github.com/pangeo-data/pangeo-docker-images/blob/master/pytorch-notebook/packages.txt), plus a few libraries pip install'd on top.
 ```
 conda env create -f environment.yml
 ```
@@ -26,15 +26,17 @@ If you want to use any of the scripts that work with `earthaccess`, you will hav
 Now you should be able to authenticate with `earthacess.login(strategy="netrc")`.
 
 ## Datasets
-If you don't care about recreating the model-ready datasets we used in this project, the netcdf files are available in the github release and on Zenodo under the `mort_datasets` directory.
+If you don't care about recreating the model-ready datasets we used in this project, the netcdf files are available in the github release and on Zenodo under the `data_working` directory.
 
 ## Recreating results
-We provided a static, compressed version of the `data_out` directory at submission time on github/Zenodo. Inflating this and `mort_datasets` in the project directory will let you recreate all the paper figures with `notebooks/plots.ipynb`. Other notebooks do the following:
+We provided a static, compressed version of the `data_out` directory at submission time on github/Zenodo. Inflating this and `data_working` in the project directory will let you recreate all the paper figures with `notebooks/plots.ipynb`. Other notebooks do the following:
 
- - `ads_iou.ipynb`: calculate annual overlap between sequential ADS survey polygons.
- - `gbm_[westmort|soap_teak].ipynb`: fit gradient-boosted regression models to the continental and local mortality datasets.
- - `repeability_iou.ipynb`: calculate overlap among the survey polygons in [Coleman et al. (2018)](https://doi.org/10.1016/j.foreco.2018.08.020).
- - `survey_prop.ipynb`: calculate the ratio of survey probability given past mortality history.
+ - `download_[dem|terraclimate].ipynb`: download relevant remote sensing data (not needed if you have `data_working` handy).
+ - `burn_ads.ipynb`: rasterize the ADS mortality polygons (not needed if you have `data_working` handy).
+ - `coarsen_treemap.ipynb`: summarize the TreeMap dataset in 3 km cells and crosswalk with hydraulic traits (not needed if you have `data_working` handy).
+ - `combine_data.ipynb`: combine all the intermediate datasets into a model-ready .zarr archive.
+ - `gbm_[temporal_cv|shap].ipynb`: fit gradient-boosted regression models to mortality data and derive shap values from predictions.
+ - `mort_convnet.ipynb`: fit a convolutional neural network to mortality data.
  - `variograms.ipynb`: calculate Moran's $I$ and temporal autocorrelation at a variety of spatial and temporal lags.
 
 ## License
