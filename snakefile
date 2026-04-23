@@ -94,7 +94,7 @@ rule download_ads:
     output:
         expand(os.path.join(DATA_IN, "ads/CONUS_Region{n}_AllYears.gdb/timestamps"), n=REGIONS)
     shell:
-        "./scripts/west_mort/download_ads.sh {DATA_IN}"
+        "./scripts/download_ads.sh {DATA_IN}"
 
 rule merge_ads:
     input:
@@ -106,7 +106,7 @@ rule merge_ads:
         # Snakemake automatically creates the .gdb folders, but this prevents gdal from making the dataset.
         # So we have to prepend the script with a rm -r to delete the directories.
         shell("rm -r {DATA_WORKING}/damage_merged.gdb {DATA_WORKING}/survey_merged.gdb") 
-        shell("./scripts/west_mort/merge_ads_polygons.sh")
+        shell("./scripts/merge_ads_polygons.sh")
 
 rule burn_ads:
     input:
