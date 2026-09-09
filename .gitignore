@@ -15,3 +15,4 @@ mort_datasets/
 figures/
 *.png
 */lightning_logs/*
+secrets.yaml
